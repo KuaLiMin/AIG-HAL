@@ -10,7 +10,7 @@ from State import *
 
 MYDEBUG = False
 
-MOVETARGETDEBUG = True
+MOVETARGETDEBUG = False
 
 class Wizard_TeamA(Character):
 
