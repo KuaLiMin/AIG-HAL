@@ -64,9 +64,9 @@ class Knight_TeamA(Character):
 
             if choice < 30:
                 choice = 'hp'
-            elif choice < 80:
-                choice = 'speed'
             elif choice < 90:
+                choice = 'speed'
+            else:
                 choice = 'melee damage'
 
             self.level_up(choice)     

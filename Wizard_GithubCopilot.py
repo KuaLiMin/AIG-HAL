@@ -79,7 +79,7 @@ class Wizard_TeamA(Character):
                 target = self.target
 
                 radius = 140
-                distance_between_dots = 20
+                distance_between_dots = 25
                 circumference = 2 * math.pi * radius 
                 num_dots = int(circumference / distance_between_dots)
 
@@ -218,6 +218,23 @@ class Wizard_TeamA(Character):
                 state_name = font.render(str((round(self.entitydamage(entity),0))) + "  "+ str(self.entity_path_index(entity)), True, (200, 255, 200))
                 surface.blit(state_name, (int(entity.position[0]-30), int(entity.position[1]-30)))
 
+            # if self.wizard.dot_list exists
+            if hasattr(self, 'dot_list'):
+                coor = self.dot_list
+
+                # draw circle around coorindates
+                for i in range(int((len(coor)))):
+                     pygame.draw.circle(surface, (100, 100, 255), (coor[i][0], coor[i][1]),  (i/2)+4)
+
+                     # blit index on circle
+                     state_name = pygame.font.SysFont("monospace", 15, True).render(str(i), True, (200, 255, 200))
+                     surface.blit(state_name, (int(coor[i][0]-10), int(coor[i][1]-10)))
+                
+
+            if hasattr(self, 'dot_list'):
+                print("oo")
+
+
 
             # mark path in list of coordinates and clostest node
             
@@ -275,8 +292,8 @@ class Wizard_TeamA(Character):
 
             choice = randint(0, 100)
 
-            if choice < 30:
-                choice = 'projectile range'
+            if choice < 20:
+                choice = 'hp'
             elif choice < 80:
                 choice = 'speed'
             elif choice < 90:
@@ -621,7 +638,7 @@ class WizardStateSeeking_TeamA(State):
     def check_conditions(self):
 
         # if timer  seconds or less in
-        if self.wizard.world.countdown_timer >= TIME_LIMIT - 1.5:
+        if self.wizard.world.countdown_timer >= TIME_LIMIT - 1:
             return "seeking"
 
 
@@ -783,6 +800,10 @@ class WizardStateReturning_TeamA(State):
 
 
 
+
+
+
+
 class WizardStateAttacking_TeamA(State):
 
     def __init__(self, wizard):
@@ -792,35 +813,22 @@ class WizardStateAttacking_TeamA(State):
         self.dot_list = []
         self.dotIndex = 0
         self.multiplier = 1
+        self.collisionCount = 0
         self.collision = False
-        self.meleeDanger = False
 
     def do_actions(self):
 
-        collision_list = pygame.sprite.spritecollide(self.wizard, self.wizard.world.obstacles, False, pygame.sprite.collide_mask)
-        for entity in collision_list:
-            if entity.name == "obstacle" or entity.name == "base":
-                    self.collision = True
-                    print("hit") if MYDEBUG else None
-        
-        if self.wizard.position[0] <= 5 or self.wizard.position[0] >= SCREEN_WIDTH - 5 or \
-           self.wizard.position[1] <= 5 or self.wizard.position[1] >= SCREEN_HEIGHT -5:
-                self.collision = True
-                print("hit wall") if MYDEBUG else None
-
-
         opponent_distance = (self.wizard.position - self.wizard.target.position).length()
 
-        # opponent within range
+        # if nearest opponent is builidng, set to that
+        if self.wizard.world.get_nearest_opponent(self.wizard) == "base" or  self.wizard.world.get_nearest_opponent(self.wizard) == "tower":
+            self.wizard.target = self.wizard.world.get_nearest_opponent(self.wizard)
+
+        # opponent within range, attack. if not, move towards opponent.
         if opponent_distance <= self.wizard.min_target_distance:
+            self.wizard.velocity = Vector2(0, 0)
             if self.wizard.current_ranged_cooldown <= 0:
                 self.wizard.ranged_attack(self.wizard.target.position, self.wizard.explosion_image)
-                if self.wizard.target.name == "orc" or self.wizard.target.name == "knight" and opponent_distance <= self.wizard.target.maxSpeed and not(self.meleeDanger):
-
-                    self.meleeDanger = True
-                    # get coordinate  in opposite direction of target
-                    self.wizard.move_target.position = self.wizard.position - (self.wizard.target.position - self.wizard.position).normalize() * self.wizard.min_target_distance
-
 
         else:
             self.wizard.velocity = self.wizard.target.position - self.wizard.position
@@ -828,81 +836,98 @@ class WizardStateAttacking_TeamA(State):
                 self.wizard.velocity.normalize_ip();
                 self.wizard.velocity *= self.wizard.maxSpeed
 
-        # if opponent is orc or knight
-
-
-
-
-
 
     def check_conditions(self):
+        
 
         # target is gone
         if self.wizard.world.get(self.wizard.target.id) is None or self.wizard.target.ko:
             self.wizard.target = None
-            # set move_target to nearest node
-            
-            print("|| ATTACKING > SEEKING") if MYDEBUG else None
             return "seeking"
-        
-        # target is too fat
-        if (self.wizard.position - self.wizard.target.position).length() > 2 * self.wizard.min_target_distance:
-            print("|| ATTACKING > SEEKING") if MYDEBUG else None
-            return "seeking"
-        
-        # target is in of range
-        if (self.wizard.position - self.wizard.target.position).length() <= self.wizard.min_target_distance:
-            # continue swingin'
 
-            if self.collision:
-                self.multiplier = -self.multiplier
-                highestIndex = len(self.dot_list)-1
-                changedVal = highestIndex + (int(highestIndex/2) * self.multiplier)
-                print ("changed val: ", changedVal, "highest index: ", highestIndex) if MYDEBUG else None
-                if changedVal < 0:
-                    changedVal = highestIndex - abs(changedVal)
-                    print ("changed val: ", changedVal, "       less than zero")  if MYDEBUG else None
-                elif changedVal > highestIndex:
-                    changedVal = changedVal - highestIndex
-                    print ("changed val: ", changedVal, "        more than highest index") if MYDEBUG else None
+        opponent_distance = (self.wizard.position - self.wizard.target.position).length()
+
+        if opponent_distance > (1.5 * self.wizard.min_target_distance):
+            self.wizard.target = None
+            return "seeking"
+
+
+        # see if entity is colliding
+        collision_list = pygame.sprite.spritecollide(self.wizard, self.wizard.world.obstacles, False, pygame.sprite.collide_mask)
+        self.collision = False
+        for entity in collision_list:
+            if entity.name == "obstacle" or entity.name == "base"  or entity.name == "tower":
+                self.collision = True
+                self.collisionCount += 1
+                print("hit base or tower") if MYDEBUG else None
+                break
+
+        
+
+
+
+      
+        # if move target reached
+        if (self.wizard.position - self.wizard.move_target.position).length() < 8 or self.collision:
+            if self.collision and ((self.wizard.position - self.wizard.move_target.position).length() < 8):
                 
-                self.dotIndex = changedVal
-                self.wizard.move_target.position = self.dot_list[self.dotIndex]
+                print('exit collision')  if MYDEBUG else None
                 self.collision = False
+                self.collisionCount = 0
+
+
+
+
             
+            if self.dotIndex + 1 == len(self.dot_list) or self.dotIndex == 0 or self.collisionCount == 1:
+                # change multiplier
+                self.multiplier = -self.multiplier
 
-            if (self.wizard.position - self.wizard.move_target.position).length() < 8:
+            if self.dotIndex <= self.dotCount:
 
-                if self.meleeDanger:
-                    self.meleeDanger = False
-                    print("|| ATTACKING > ATTACKING") if MYDEBUG else None 
-                    return "attacking"  
+                new_target = self.dot_list[self.dotIndex]
 
-                
-                if self.dotIndex + 1 == len(self.dot_list) or self.dotIndex == 0 :
-                    # change multiplier
-                    self.multiplier = -self.multiplier
-
-                if self.dotIndex <= self.dotCount:
-                    self.wizard.move_target.position = self.dot_list[self.dotIndex]
-                    self.dotIndex+=self.multiplier
-            else:
-                self.wizard.velocity = self.wizard.move_target.position - self.wizard.position
-                if self.wizard.velocity.length() > 0:
-                    self.wizard.velocity.normalize_ip();
-                    self.wizard.velocity *= self.wizard.maxSpeed
-
-                
-                    
+                self.wizard.move_target.position = self.dot_list[self.dotIndex]
+                self.dotIndex+=self.multiplier
         else:
-            print("|| ATTACKING > ATTACKING") if MYDEBUG else None 
-            return "attacking"      
+            self.wizard.velocity = self.wizard.move_target.position - self.wizard.position
+            if self.wizard.velocity.length() > 0:
+                self.wizard.velocity.normalize_ip();
+                self.wizard.velocity *= self.wizard.maxSpeed
+
+
+        # if colliding for too long
+        if self.collisionCount > 300:
+            self.wizard.path_graph = self.wizard.world.paths[self.wizard.entity_path_index(self.wizard)]
+            nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
+
+            self.wizard.move_target.position = nearest_node.position
+
+            if self.collisionCount > 600:
+                self.collisionCount = 0
+                self.collision = False
+                self.wizard.target = None
+                return "seeking"
+            return "seeking"
+
+        
+        print("INDEX", "                              ", self.dotIndex, self.dotCount, self.collisionCount) if MYDEBUG else None
 
         return None
+            
+
+
+
 
     def entry_actions(self):
         target = self.wizard.target
-        radius = self.wizard.min_target_distance # circle around target - 10 just in case
+        radius = self.wizard.min_target_distance -20
+
+        if self.wizard.near_base(self.wizard, 5):
+            radius = self.wizard.min_target_distance - 20
+        
+        
+        # circle around target - 10 just in case
         # if not(self.wizard.target.name == "orc" or self.wizard.target.name == "knight"):
         #     if (self.wizard.min_target_distance < self.wizard.target.min_target_distance):
         #         radius = (self.wizard.target.min_target_distance + self.wizard.min_target_distance)/2
@@ -919,12 +944,62 @@ class WizardStateAttacking_TeamA(State):
         # Calculate the angle between each dot
         angle = 360 / num_dots
 
+
+        first_dot_index = 0
+        onScreenList = []
+        isPastFirstOffscreen = False
+
         # Create a loop to calculate the coordinates of each dot
         for i in range(num_dots):
             # Add the dot coordinates to the list
-            self.dot_list.append((target.position[0] + radius * math.cos(math.radians(i * angle)), target.position[1] + radius * math.sin(math.radians(i * angle))))
+            # if dot is not off screen
+
+            x = target.position[0] + radius * math.cos(math.radians(i * angle))
+            y = target.position[1] + radius * math.sin(math.radians(i * angle))
+
+            # if on screen and first off screen has passed
+            if isPastFirstOffscreen and (x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
+                first_dot_index = i
+                break
+            
+            # if off screen
+            if not(x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
+                isPastFirstOffscreen = True
         
 
+
+        # Create a loop to calculate the coordinates of each dot
+        for i in range(num_dots):
+            # Add the dot coordinates to the list
+
+            x = target.position[0] + radius * math.cos(math.radians(i * angle))
+            y = target.position[1] + radius * math.sin(math.radians(i * angle))
+            onScreenList.append((x,y))
+
+           
+        # change self.dot list to start at first dot index
+        onScreenList = onScreenList[first_dot_index:] + onScreenList[:first_dot_index]
+
+        # remove off screen dots
+        for i in onScreenList:
+            
+           
+            if i[0] > 3 and i[0] < SCREEN_WIDTH -3 and i[1] > 3 and i[1] < SCREEN_HEIGHT -3:
+                
+                # append to self.dot_list
+                self.dot_list.append(i)
+
+                
+
+        # if last dot is closer than first dot, reverse the list
+        if (self.dot_list[0] - self.wizard.position).length() > (self.dot_list[len(self.dot_list) -1] - self.wizard.position).length():
+            # reverse list
+            self.dot_list = self.dot_list[::-1]
+
+            
+
+        
+     
         # find closest dot index in dot index list
         closest_dot_index = 0
         closest_distance = 1000000
@@ -936,8 +1011,17 @@ class WizardStateAttacking_TeamA(State):
 
         
     
-
+        self.collisionCount = 0
         self.dotCount = len(self.dot_list)
+
+
+
+        # print self.dot_list with index
+        for i in range(len(self.dot_list)):
+            print(i, "   ", self.dot_list[i]) if MYDEBUG else None
+
+        self.wizard.dot_list = self.dot_list
+
 
         if (self.dotCount > 0):
             self.dotIndex = closest_dot_index
@@ -948,6 +1032,19 @@ class WizardStateAttacking_TeamA(State):
             self.wizard.move_target.position = self.wizard.position
         
         return None
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class WizardStateKO_TeamA(State):

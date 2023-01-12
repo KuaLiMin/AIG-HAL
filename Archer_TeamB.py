@@ -46,7 +46,7 @@ class Archer_TeamB(Character):
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
             choice = randint(0, len(level_up_stats) - 1)
-            self.level_up(level_up_stats[choice])   
+            self.level_up(level_up_stats[1])   
 
 
 class ArcherStateSeeking_TeamB(State):
