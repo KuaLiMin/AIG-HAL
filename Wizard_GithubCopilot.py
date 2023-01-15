@@ -292,7 +292,7 @@ class Wizard_TeamA(Character):
 
             choice = randint(0, 100)
 
-            if choice < 20:
+            if choice < 50:
                 choice = 'hp'
             elif choice < 80:
                 choice = 'speed'
@@ -689,8 +689,8 @@ class WizardStateSeeking_TeamA(State):
             # if self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5:
             #     print("            LOW HEALTH")
 
-            # if tower is ok
-            if self.wizard.towerIsOk() or (self.wizard.world.countdown_timer<= TIME_LIMIT/2.5 and self.wizard.base.current_hp > self.wizard.base.current_hp/3.5):
+            # if tower is ok or if is more worth it be on the offensive
+            if self.wizard.towerIsOk() or (self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5 and  self.wizard.world.countdown_timer<= TIME_LIMIT/2.5):
 
 
 

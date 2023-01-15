@@ -46,7 +46,7 @@ class Archer_TeamA(Character):
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
             choice = randint(0, len(level_up_stats) - 1)
-            self.level_up(level_up_stats[choice])   
+            self.level_up('hp')   
 
 
 class ArcherStateSeeking_TeamA(State):
@@ -119,6 +119,7 @@ class ArcherStateAttacking_TeamA(State):
             self.archer.target = nearest_opponent
 
         opponent_distance = (self.archer.position - self.archer.target.position).length()
+
 
         # opponent within range
         if opponent_distance <= self.archer.min_target_distance:

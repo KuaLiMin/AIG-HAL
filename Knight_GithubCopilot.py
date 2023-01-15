@@ -62,7 +62,7 @@ class Knight_TeamA(Character):
         if self.can_level_up():
             choice = randint(0, 100)
 
-            if choice < 30:
+            if choice < 50:
                 choice = 'hp'
             elif choice < 90:
                 choice = 'speed'
