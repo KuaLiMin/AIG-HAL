@@ -684,10 +684,10 @@ class WizardStateSeeking_TeamA(State):
 
         if self.wizard.near_base(self.wizard,3.75):
 
-            if self.wizard.world.countdown_timer<= TIME_LIMIT/2.5:
-                print("            TIME IS RUNNING OUT")
-            if self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5:
-                print("            LOW HEALTH")
+            # if self.wizard.world.countdown_timer<= TIME_LIMIT/2.5:
+            #     print("            TIME IS RUNNING OUT")
+            # if self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5:
+            #     print("            LOW HEALTH")
 
             # if tower is ok
             if self.wizard.towerIsOk() or (self.wizard.world.countdown_timer<= TIME_LIMIT/2.5 and self.wizard.base.current_hp > self.wizard.base.current_hp/3.5):
