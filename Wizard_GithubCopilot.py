@@ -649,10 +649,8 @@ class WizardStateSeeking_TeamA(State):
         if path_index == 1 or path_index == 0:
             closeEnoughRange = 2.4
 
-        # if not(self.wizard.near_base(self.wizard,5.3)) and self.wizard.near_base(self.wizard,closeEnoughRange):
-        #     self.wizard.text += "RRRRRRRRRRRRRRRRRRRRRRR"
 
-        # if wizard is close enough (but not already at base) and towers are struggling, make wizard go bacl
+        # if wizard is close enough (but not already at base) and towers are struggling, make wizard go back
         if not(self.wizard.near_base(self.wizard, 5.3)) and self.wizard.near_base(self.wizard,closeEnoughRange) and not(self.wizard.towerIsOk()):
 
             print("|| SEEKING > RETURNING") if MYDEBUG else None
@@ -686,8 +684,15 @@ class WizardStateSeeking_TeamA(State):
 
         if self.wizard.near_base(self.wizard,3.75):
 
+            if self.wizard.world.countdown_timer<= TIME_LIMIT/2.5:
+                print("            TIME IS RUNNING OUT")
+            if self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5:
+                print("            LOW HEALTH")
+
             # if tower is ok
-            if self.wizard.towerIsOk():
+            if self.wizard.towerIsOk() or (self.wizard.world.countdown_timer<= TIME_LIMIT/2.5 and self.wizard.base.current_hp > self.wizard.base.current_hp/3.5):
+
+
 
                 path_index = self.wizard.neglected_path_index()
                 print("SEEKING | NEGLECTED PATH", end=" | ") if MYDEBUG else None
