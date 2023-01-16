@@ -59,7 +59,6 @@ class Wizard_TeamA(Character):
 
         
         if MYDEBUG:
-            widthbuffer = SCREEN_WIDTH/11
             heightbuffer = SCREEN_WIDTH/11
 
             # draw line heightbuffer pixels from the top and bottom of screen
@@ -154,8 +153,8 @@ class Wizard_TeamA(Character):
             #     pygame.draw.circle(surface, (255, 0, 100), (int(self.target.position[0]), int(self.target.position[1])), 50, 10)
 
 
-            # if towerisok
-            if self.towerIsOk():
+            # if leaveTowersAlone
+            if self.leaveTowersAlone():
                 # blit circle around base
                 pygame.draw.circle(surface, (0, 255, 0), (int(self.base.position[0]), int(self.base.position[1])), 100, 10)
             else:
@@ -231,8 +230,6 @@ class Wizard_TeamA(Character):
                      surface.blit(state_name, (int(coor[i][0]-10), int(coor[i][1]-10)))
                 
 
-            if hasattr(self, 'dot_list'):
-                print("oo")
 
 
 
@@ -249,15 +246,6 @@ class Wizard_TeamA(Character):
                     pygame.draw.circle(surface, (180, 90, 180), self.path_graph.nodes[nodeKey].position, 10)
                     surface.blit(pygame.font.SysFont("arial", 15, True).render(str((self.path_graph.nodes[nodeKey].position[0]-20, (self.path_graph.nodes[nodeKey].position[1]-20))), 1, (255, 220, 255)), (self.path_graph.nodes[nodeKey].position[0]-20, (self.path_graph.nodes[nodeKey].position[1]-20)))
 
-
-
-
-
-                    
-        
-               # pygame.draw.polygon(surface, (255, 0, 100), ((int(self.path_graph.nodes[len(self.path_graph.nodes)-1].position[0]), int(self.path_graph.nodes[len(self.path_graph.nodes)-1].position[1])), (int(self.path_graph.nodes[len(self.path_graph.nodes)-1].position[0]-10), int(self.path_graph.nodes[len(self.path_graph.nodes)-1].position[1]+10)), (int(self.path_graph.nodes[len(self.path_graph.nodes)-1].position[0]+10), int(self.path_graph.nodes[len(self.path_graph.nodes)-1].position[1]+10))), 0)
-
-            # trace path in graph object
 
 
         Character.render(self, surface)
@@ -288,15 +276,16 @@ class Wizard_TeamA(Character):
         
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
+            print("      CAN LEVEL UP", self.xp_to_next_level)
             # random number between 0 and 100
 
             choice = randint(0, 100)
 
             if choice < 50:
                 choice = 'hp'
-            elif choice < 80:
+            elif choice < 85:
                 choice = 'speed'
-            elif choice < 90:
+            elif choice < 95:
                 choice = 'ranged cooldown'
             else:
                 choice = 'ranged damage'
@@ -362,17 +351,13 @@ class Wizard_TeamA(Character):
         # --------------
 
 
-        # if enttty is near top or right, but not near bottom and left
+        # if entity is near top or right, but not near bottom and left
         if (near_top or near_right) and not (near_bottom or near_left):
             return 0
 
         # if entity is near bottom or left, but not near top and right
         if (near_bottom or near_left) and not (near_top or near_right):
             return 1
-
-
-
-
 
         # else find nearest node and return path index
 
@@ -396,12 +381,6 @@ class Wizard_TeamA(Character):
         # loop indexes of list
         for i in range(0, len(self.world.paths)):
             path_dict[i] = 0
-
-
-
-
-
-
         # for each hero/orc from same team in world
         for i in self.world.entities:
             entity = self.world.entities[i]
@@ -458,37 +437,7 @@ class Wizard_TeamA(Character):
             return lowest_indexes[randint(0, len(lowest_indexes) - 1)]
 
 
-    def get_nearest_living_opponent(self):
-
-        nearest_opponent = None
-        distance = 0.
-
-        for entity in self.world.entities.values():
-
-            # neutral entity
-            if entity.team_id == 2:
-                continue
-
-            # same team
-            if entity.team_id == self.team_id:
-                continue
-
-            if self.isNonLiving(entity):
-                continue
-
-            if entity.ko:
-                continue
-
-            if nearest_opponent is None:
-                nearest_opponent = entity
-                distance = (self.position - entity.position).length()
-            else:
-                if distance > (self.position - entity.position).length():
-                    distance = (self.position - entity.position).length()
-                    nearest_opponent = entity
-        
-        return nearest_opponent
-
+ 
 
     # if entity is near base
     def near_base(self, entity, portion):
@@ -554,7 +503,31 @@ class Wizard_TeamA(Character):
                 
 
         if strongest == None:
-            strongest = self.get_nearest_living_opponent()
+            distance = 0.
+
+            for entity in self.world.entities.values():
+
+                # neutral entity
+                if entity.team_id == 2:
+                    continue
+
+                # same team
+                if entity.team_id == self.team_id:
+                    continue
+
+                if self.isNonLiving(entity):
+                    continue
+
+                if entity.ko:
+                    continue
+
+                if strongest is None:
+                    strongest = entity
+                    distance = (self.position - entity.position).length()
+                else:
+                    if distance > (self.position - entity.position).length():
+                        distance = (self.position - entity.position).length()
+                        strongest = entity
 
         return strongest
 
@@ -576,42 +549,45 @@ class Wizard_TeamA(Character):
 
         return total_dam
 
-    # If situation with towers is ok 
-    def towerIsOk(self):
+    # If it is ok to leave towers area alone
+    def leaveTowersAlone(self):
+
+        # IF NO OPPONENTS, OK
 
         # count of opponents within 2.5 range around base
         oppCount = self.near_base_opponent_count(2.5)
 
         # it is immediately ok if there are no opponents, no need to check towers
         if oppCount == 0:
-            return True      
-
-        # it is immediately not ok if there are opponents within smaller 3.75 range around base
-        if self.near_base_opponent_count(3.75) > 0: 
-            return False
-
+            return True     
 
         # checking towers, ok means:
         # - there are two towers on team
         #  AND
         # - average damage * three hits is less than average hp of towers
 
+
         towerCount = 0
+        
         tower_HP = 0
 
-        # check for towers on team
-        for i in self.world.entities:
-            entity = self.world.entities[i]
-            if entity.name == "tower":
-                if entity.team_id == self.team_id:
-                    towerCount += 1
-                    tower_HP += entity.current_hp
+        if self.world.countdown_timer<= TIME_LIMIT/2.5 or self.base.current_hp <= self.base.current_hp/3:
+            return True
+        else:
+            # check for towers on team
+            for i in self.world.entities:
+                entity = self.world.entities[i]
+                if entity.name == "tower":
+                    if entity.team_id == self.team_id:
+                        towerCount += 1
+                        tower_HP += entity.current_hp
 
-        if towerCount > 0:
-        
-            oppDamage = self.opponentDamage_in_range(self.base)
-            if towerCount == 2 and (oppDamage/oppCount * 3) < tower_HP/towerCount: 
-                return True
+            if towerCount > 0:
+            
+                oppDamage = self.opponentDamage_in_range(self.base)
+                if towerCount == 2 and (oppDamage/oppCount * 3) < tower_HP/towerCount: 
+                    return True
+            
             
         return False
 
@@ -651,7 +627,7 @@ class WizardStateSeeking_TeamA(State):
 
 
         # if wizard is close enough (but not already at base) and towers are struggling, make wizard go back
-        if not(self.wizard.near_base(self.wizard, 5.3)) and self.wizard.near_base(self.wizard,closeEnoughRange) and not(self.wizard.towerIsOk()):
+        if not(self.wizard.near_base(self.wizard, 5.3)) and self.wizard.near_base(self.wizard,closeEnoughRange) and not(self.wizard.leaveTowersAlone()):
 
             print("|| SEEKING > RETURNING") if MYDEBUG else None
             return "returning"
@@ -684,20 +660,13 @@ class WizardStateSeeking_TeamA(State):
 
         if self.wizard.near_base(self.wizard,3.75):
 
-            # if self.wizard.world.countdown_timer<= TIME_LIMIT/2.5:
-            #     print("            TIME IS RUNNING OUT")
-            # if self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5:
-            #     print("            LOW HEALTH")
+            # if should leave
 
-            # if tower is ok or if is more worth it be on the offensive
-            if self.wizard.towerIsOk() or (self.wizard.base.current_hp <= self.wizard.base.current_hp/3.5 and  self.wizard.world.countdown_timer<= TIME_LIMIT/2.5):
-
-
-
+            if self.wizard.leaveTowersAlone():
                 path_index = self.wizard.neglected_path_index()
                 print("SEEKING | NEGLECTED PATH", end=" | ") if MYDEBUG else None
 
-            # if tower is not ok (opponents are near base + buildings might not be able to handle)
+            # if should stay
             else:
                 # pick path of strongest nearby opponent
                 path_index = self.wizard.entity_path_index(self.wizard.near_base_strongest_opponent())
@@ -757,7 +726,7 @@ class WizardStateReturning_TeamA(State):
             self.wizard.velocity *= self.wizard.maxSpeed
 
     def check_conditions(self):
-        if (self.wizard.near_base(self.wizard,3.8) or self.wizard.towerIsOk()) or (self.wizard.near_base(self.wizard,3.75)):
+        if (self.wizard.near_base(self.wizard,3.8) or self.wizard.leaveTowersAlone()) or (self.wizard.near_base(self.wizard,3.75)):
             nearest_opponent = self.wizard.world.get_nearest_opponent(self.wizard)
             if nearest_opponent is not None:
                 opponent_distance = (self.wizard.position - nearest_opponent.position).length()
@@ -929,14 +898,7 @@ class WizardStateAttacking_TeamA(State):
         radius = self.wizard.min_target_distance -20
 
         if self.wizard.near_base(self.wizard, 5):
-            radius = self.wizard.min_target_distance - 20
-        
-        
-        # circle around target - 10 just in case
-        # if not(self.wizard.target.name == "orc" or self.wizard.target.name == "knight"):
-        #     if (self.wizard.min_target_distance < self.wizard.target.min_target_distance):
-        #         radius = (self.wizard.target.min_target_distance + self.wizard.min_target_distance)/2
-            
+            radius = self.wizard.min_target_distance -70
 
        
         distance_between_dots = 20
