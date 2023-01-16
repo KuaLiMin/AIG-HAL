@@ -298,7 +298,8 @@ class ArcherStateAttacking_TeamA(State):
 
             if (self.archer.position - self.archer.move_target.position).length() < 8:
                 # continue on path
-                if self.current_connection < self.path_length:   
+                if self.current_connection < self.path_length:  
+                    self.archer.move_target.position = self.path[self.current_connection].toNode.position
                     self.current_connection += 1
 
         #Reached reset point                   
