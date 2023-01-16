@@ -139,6 +139,7 @@ class Archer_TeamA(Character):
         
         return False
 
+
     def get_nearest_reset(self):
         nearest = None
         distance = 99999999999999
@@ -176,6 +177,18 @@ class Archer_TeamA(Character):
         return nearest
 
 
+    #Check if archer should shift to dodging state
+    def to_dodge(self):
+        for entity in self.world.entities.values():
+            if entity.team_id != self.team_id and entity.name == "tower":
+                #Check if archer is in range of enemy to dodge
+                if (self.position - entity.position).length() <= entity.min_target_distance:
+                    self.target = entity
+                    return True
+        
+        return False
+
+
 class ArcherStateSeeking_TeamA(State):
 
     def __init__(self, archer):
@@ -206,12 +219,9 @@ class ArcherStateSeeking_TeamA(State):
                     self.archer.target = nearest_opponent
                     return "attacking"
     
-        for entity in self.archer.world.entities.values():
-            if entity.team_id != self.archer.team_id and entity.name in ["tower", "base"] and\
-                (self.archer.position - entity.position).length() <= self.archer.min_target_distance + 20:
-                self.archer.target = entity
-                return "dodging"
-
+        # Go to dodging state
+        if self.archer.to_dodge():
+            return "dodging"
 
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
@@ -287,6 +297,10 @@ class ArcherStateAttacking_TeamA(State):
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
 
+            if self.archer.target.name == "tower":
+                if self.archer.to_dodge():
+                    return "dodging"
+
             #Move backwards if opponent is within this distance
             if opponent_distance <= self.archer.min_target_distance - 40:
 
@@ -298,7 +312,7 @@ class ArcherStateAttacking_TeamA(State):
 
             if (self.archer.position - self.archer.move_target.position).length() < 8:
                 # continue on path
-                if self.current_connection < self.path_length:  
+                if self.current_connection < self.path_length:   
                     self.archer.move_target.position = self.path[self.current_connection].toNode.position
                     self.current_connection += 1
 
@@ -349,7 +363,7 @@ class ArcherStateDodging_TeamA(State):
         nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
         if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance:
             if (nearest_opponent.name == "orc" or nearest_opponent.name == "knight") and \
-                (self.archer.position - nearest_opponent.position).length() >= self.archer.min_target_distance - 40:
+                (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance - 50:
                 self.archer.target = nearest_opponent
 
         self.archer.set_velocity(self.archer.move_target.position)
@@ -361,9 +375,9 @@ class ArcherStateDodging_TeamA(State):
             self.archer.heal()
 
         #Go back to attacking if knight or orc detected
-        if self.archer.target.team_id != self.archer.team_id:
-            if self.archer.target.name == "knight" or self.archer.target.name =="orc":
-                return "attacking"
+        # if self.archer.target.team_id != self.archer.team_id:
+        #     if self.archer.target.name == "knight" or self.archer.target.name =="orc":
+        #         return "attacking"
 
         opponent_distance = (self.archer.position - self.archer.target.position).length()
         if opponent_distance <= self.archer.min_target_distance:
@@ -371,8 +385,10 @@ class ArcherStateDodging_TeamA(State):
                 self.archer.ranged_attack(self.archer.target.position)
 
         if (self.archer.position - self.archer.move_target.position).length() < 8:
-            if self.dodging:
+            if self.dodging or\
+                (self.archer.target.team_id != self.archer.team_id and self.archer.target.name in ["knight", "orc"]) :
                 return "attacking"
+
             else:
                 self.archer.velocity = Vector2(0, 0)
 
