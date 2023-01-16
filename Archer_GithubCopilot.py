@@ -26,7 +26,7 @@ class Archer_TeamA(Character):
         #Path initialization
         self.graph = Graph(self)
         self.generate_pathfinding_graphs("archer_pathfinding.txt")
-        self.reset_points = [Vector2(310, 80), Vector2(705,71), Vector2(870,80), Vector2(925,390), Vector2(876,508), #Top Lane
+        self.reset_points = [Vector2(310, 80), Vector2(484, 80), Vector2(705,71), Vector2(870,80), Vector2(925,390), Vector2(876,508), Vector2(940, 190),#Top Lane
                             Vector2(90,390), Vector2(80,520), Vector2(180,670), Vector2(447,721), Vector2(630, 710), Vector2(755, 680)] #Bot Lane
 
         self.maxSpeed = 50
@@ -36,12 +36,14 @@ class Archer_TeamA(Character):
 
         seeking_state = ArcherStateSeeking_TeamA(self)
         attacking_state = ArcherStateAttacking_TeamA(self)
-        dodging_state = ArcherStateDodging_TeamA(self)
+        dodgeTower_state = ArcherStateDodgeTower_TeamA(self)
+        dodgeEnemy_state = ArcherStateDodgeEnemy_TeamA(self)
         ko_state = ArcherStateKO_TeamA(self)
 
         self.brain.add_state(seeking_state)
         self.brain.add_state(attacking_state)
-        self.brain.add_state(dodging_state)
+        self.brain.add_state(dodgeTower_state)
+        self.brain.add_state(dodgeEnemy_state)
         self.brain.add_state(ko_state)
 
         self.brain.set_state("seeking")
@@ -62,7 +64,8 @@ class Archer_TeamA(Character):
         
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
-            choice = randint(0, len(level_up_stats) - 1)
+            choice = 2
+            # choice = randint(0, len(level_up_stats) - 1)
             self.level_up(level_up_stats[choice])   
 
 
@@ -136,7 +139,7 @@ class Archer_TeamA(Character):
         for entity in collision_list:
             if entity.name == "obstacle":
                 return True
-        
+
         return False
 
 
@@ -177,8 +180,8 @@ class Archer_TeamA(Character):
         return nearest
 
 
-    #Check if archer should shift to dodging state
-    def to_dodge(self):
+    #Check if archer should shift to dodgeTower state
+    def to_dodgeTower(self):
         for entity in self.world.entities.values():
             if entity.team_id != self.team_id and entity.name == "tower":
                 #Check if archer is in range of enemy to dodge
@@ -208,7 +211,7 @@ class ArcherStateSeeking_TeamA(State):
 
     def check_conditions(self):
 
-        if self.archer.current_hp/self.archer.max_hp <= 0.7:
+        if self.archer.current_hp/self.archer.max_hp < 0.7:
             self.archer.heal()
 
         # check if opponent is in range
@@ -219,9 +222,9 @@ class ArcherStateSeeking_TeamA(State):
                     self.archer.target = nearest_opponent
                     return "attacking"
     
-        # Go to dodging state
-        if self.archer.to_dodge():
-            return "dodging"
+        # Go to dodgeTower state
+        if self.archer.to_dodgeTower():
+            return "dodgeTower"
 
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
@@ -266,6 +269,8 @@ class ArcherStateAttacking_TeamA(State):
 
         State.__init__(self, "attacking")
         self.archer = archer
+        self.dodging_archer = False
+        self.move_up = False
 
     def do_actions(self):
 
@@ -298,8 +303,11 @@ class ArcherStateAttacking_TeamA(State):
         if not self.archer.resetting:
 
             if self.archer.target.name == "tower":
-                if self.archer.to_dodge():
-                    return "dodging"
+                if self.archer.to_dodgeTower():
+                    return "dodgeTower"
+
+            if self.archer.target.name == "archer":
+                return "dodgeEnemy"
 
             #Move backwards if opponent is within this distance
             if opponent_distance <= self.archer.min_target_distance - 40:
@@ -349,11 +357,11 @@ class ArcherStateAttacking_TeamA(State):
         return None
 
 
-class ArcherStateDodging_TeamA(State):
+class ArcherStateDodgeTower_TeamA(State):
 
     def __init__(self, archer):
 
-        State.__init__(self, "dodging")
+        State.__init__(self, "dodgeTower")
         self.archer = archer
 
 
@@ -361,7 +369,7 @@ class ArcherStateDodging_TeamA(State):
 
         #Update nearest opponent
         nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
-        if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance:
+        if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance and not self.dodging:
             if (nearest_opponent.name == "orc" or nearest_opponent.name == "knight") and \
                 (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance - 50:
                 self.archer.target = nearest_opponent
@@ -371,7 +379,7 @@ class ArcherStateDodging_TeamA(State):
 
     def check_conditions(self):
 
-        if self.archer.current_hp/self.archer.max_hp <= 0.7:
+        if self.archer.current_hp/self.archer.max_hp <= 0.4:
             self.archer.heal()
 
         #Go back to attacking if knight or orc detected
@@ -420,6 +428,70 @@ class ArcherStateDodging_TeamA(State):
                 self.archer.move_target.position = Vector2(SCREEN_WIDTH - 10, self.archer.target.position[1] - self.archer.min_target_distance + 60)
 
             self.dodging = False
+        
+        return None
+
+
+class ArcherStateDodgeEnemy_TeamA(State):
+
+    def __init__(self, archer):
+
+        State.__init__(self, "dodgeEnemy")
+        self.archer = archer
+        self.move_up = False
+
+    def do_actions(self):
+
+        #Update nearest opponent
+        nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
+        if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance:
+            if (nearest_opponent.name == "orc" or nearest_opponent.name == "knight") and \
+                (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance - 50:
+                self.archer.target = nearest_opponent
+
+        self.archer.set_velocity(self.archer.move_target.position)
+
+    def check_conditions(self):
+
+        #Attack opponent if in range
+        opponent_distance = (self.archer.position - self.archer.target.position).length()
+        if opponent_distance <= self.archer.min_target_distance:
+            if self.archer.current_ranged_cooldown <= 0:
+                self.archer.ranged_attack(self.archer.target.position)
+        
+        elif opponent_distance <= self.archer.min_target_distance:
+            return "attacking"
+
+        #Back to attacking state if target changes to knight or orc
+        if self.archer.target.team_id != self.archer.team_id and self.archer.target.name in ["knight", "orc"]:
+            return "attacking"
+
+        # target is gone
+        if self.archer.world.get(self.archer.target.id) is None or self.archer.target.ko:
+            self.archer.target = None
+            return "seeking"
+
+        #If move_target reached, switch target
+        if self.archer.target.name == "archer":
+            if (self.archer.position - self.archer.move_target.position).length() < 8:
+                if self.archer.nearest_edge() == "up":
+                    self.archer.velocity = Vector2(0, 0)
+                    for entity in self.archer.world.entities.values():
+                        if entity.team_id != self.archer.team_id and entity.name == "projectile" and\
+                            (entity.position - self.archer.position).length() <= self.archer.min_target_distance:
+                            if self.move_up:
+                                self.archer.move_target.position = Vector2(self.archer.position[0], 70)
+                                self.move_up = False
+                            else:
+                                self.archer.move_target.position = Vector2(self.archer.position[0], 10)
+                                self.move_up = True
+
+
+    def entry_actions(self):
+
+        self.archer.move_target.position = self.archer.position
+
+        return None
 
 
 class ArcherStateKO_TeamA(State):
