@@ -276,21 +276,39 @@ class Wizard_TeamA(Character):
         
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
-            print("      CAN LEVEL UP", self.xp_to_next_level)
             # random number between 0 and 100
 
-            choice = randint(0, 100)
+            # choice = randint(0, 100)
 
-            if choice < 50:
-                choice = 'hp'
-            elif choice < 85:
+            # if choice < 50:
+            #     choice = 'hp'
+            # elif choice < 85:
+            #     choice = 'speed'
+            # elif choice < 95:
+            #     choice = 'ranged cooldown'
+            # else:
+            #     choice = 'ranged damage'
+
+            # self.level_up(choice)     
+            
+            level = self.xp_to_next_level/100
+
+            # if level is divisible by 5
+            if level % 5 == 0:
+                # 50/50 between cooldown and damage
+                choice = randint(0, 100)
+                if choice < 50:
+                    choice = 'ranged cooldown'
+                else:
+                    choice = 'ranged damage'
+            # if level is divisible by 2
+            elif level % 2 == 0:
                 choice = 'speed'
-            elif choice < 95:
-                choice = 'ranged cooldown'
             else:
-                choice = 'ranged damage'
+                choice = 'hp'
 
-            self.level_up(choice)      
+            self.level_up(choice) 
+
 
     def point_in_polygon(self,point, polygon):
         x, y = point
@@ -876,12 +894,9 @@ class WizardStateAttacking_TeamA(State):
             nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
 
             self.wizard.move_target.position = nearest_node.position
-
-            if self.collisionCount > 600:
-                self.collisionCount = 0
-                self.collision = False
-                self.wizard.target = None
-                return "seeking"
+            self.collisionCount = 0
+            self.collision = False
+            self.wizard.target = None
             return "seeking"
 
         
