@@ -8,8 +8,6 @@ from State import *
 
 from Orc import *
 
-DEBUG2 = False
-
 class Knight_TeamA(Character):
 
     def __init__(self, world, image, base, position):
@@ -21,6 +19,8 @@ class Knight_TeamA(Character):
         self.move_target = GameEntity(world, "knight_move_target", None)
         self.target = None
         self.targeted = None
+        self.tower = []
+
 
         self.maxSpeed = 80
         self.min_target_distance = 100
@@ -41,18 +41,7 @@ class Knight_TeamA(Character):
     def render(self, surface):
 
         Character.render(self, surface)
-        if DEBUG2:
-            pygame.draw.circle(surface, (0, 0, 0), (int(self.position[0]), int(self.position[1])), int(self.min_target_distance), int(2))
-
-            font = pygame.font.SysFont("arial", 12, True)
-            state_name = font.render(self.brain.active_state.name, True, (255, 255, 255))
-            surface.blit(state_name, self.position)
-
-            if self.targeted:
-                pygame.draw.line(surface, (0, 255, 0), self.position, self.targeted.position)
-                pygame.draw.circle(surface, (255, 0, 0), (int(self.position[0]), int(self.position[1])), int(40), int(2))
-
-
+       
 
     def process(self, time_passed):
         
@@ -70,6 +59,25 @@ class Knight_TeamA(Character):
                 choice = 'melee damage'
 
             self.level_up(choice)     
+
+    def get_enemy_tower(self, char):
+        enemy_tower = []
+
+        for entity in self.world.entities.values():
+            if entity.team_id == 2 or entity.team_id == char.team_id:
+                continue
+
+            if entity.name == 'projectile' or entity.name == 'explosion':
+                continue
+            if entity.ko == True:
+                continue
+            if entity.name == 'tower':
+                enemy_tower.append(entity.position)
+
+        # print(enemy_tower)
+        # print(self.tower)
+        
+        return enemy_tower
 
     def get_nearest_tower(self, char):
 
@@ -104,6 +112,9 @@ class Knight_TeamA(Character):
 
         orc_lane = {'0':0, '1':0, '2':0, '3':0}
 
+        enemy_tower = char.get_enemy_tower(char)
+
+
         lane_with_least = None
         # print(parameter)
 
@@ -133,13 +144,20 @@ class Knight_TeamA(Character):
                 lane_with_least == self.world.paths[0]
                 return lane_with_least
     
-        for key in orc_lane.keys():
-            if orc_lane[key] == min(orc_lane.values()):
-                lane_with_least = self.world.paths[int(key)]
-                # print("lane_values", orc_lane.values(), "key", key)
-            continue
+        if len(enemy_tower) == 2 or len(enemy_tower) == 0:
+            for key in orc_lane.keys():
+                if orc_lane[key] == min(orc_lane.values()):
+                    lane_with_least = self.world.paths[int(key)]
+                    # print("lane_values", orc_lane.values(), "key", key)
+                continue
+        else:
+            if (enemy_tower[0][0] <= char.tower[0][0]):
+                lane_with_least = self.world.paths[0]
+            else:
+                lane_with_least = self.world.paths[1]
 
         # print("lane 3", lane_with_least)
+        # print(lane_with_least)
         return lane_with_least
     
     def get_targeted(self, char):
@@ -219,12 +237,16 @@ class KnightStateSeeking_TeamA(State):
             if self.current_connection < self.path_length:
                 self.knight.move_target.position = self.path[self.current_connection].toNode.position
                 self.current_connection += 1
+            if self.knight.target is None and self.knight.velocity == 0:
+                self.knight.unstuck(self.knight)
             
         return None
 
 
     def entry_actions(self):
 
+        if self.knight.tower == []:
+            self.knight.tower = self.knight.get_enemy_tower(self.knight)
         nearest_node = self.knight.path_graph.get_nearest_node(self.knight.position)
 
         self.path = pathFindAStar(self.knight.path_graph, \
