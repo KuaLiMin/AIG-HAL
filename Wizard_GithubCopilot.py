@@ -11,7 +11,7 @@ OLDMYDEBUG = False
 
 MYDEBUG = False
 
-MOVETARGETDEBUG = True
+MOVETARGETDEBUG = False
 
 class Wizard_TeamA(Character):
 
@@ -691,7 +691,7 @@ class WizardStateSeeking_TeamA(State):
                         
                         
         if oppTowerCount !=1 or towerCheck == False:
-            if self.wizard.near_base(self.wizard,3.75):
+            if self.wizard.near_base(self.wizard,3.8):
 
                 # if should leave
 
@@ -897,8 +897,6 @@ class WizardStateAttacking_TeamA(State):
 
         
 
-
-
       
         # if move target reached
         if (self.wizard.position - self.wizard.move_target.position).length() < 8 or self.collision:
@@ -910,15 +908,14 @@ class WizardStateAttacking_TeamA(State):
 
 
 
-
             
             if self.dotIndex + 1 == len(self.dot_list) or self.dotIndex == 0 or self.collisionCount == 1:
+                print("changed direction")
                 # change multiplier
                 self.multiplier = -self.multiplier
 
             if self.dotIndex <= self.dotCount:
 
-                new_target = self.dot_list[self.dotIndex]
 
                 self.wizard.move_target.position = self.dot_list[self.dotIndex]
                 self.dotIndex+=self.multiplier
@@ -930,7 +927,7 @@ class WizardStateAttacking_TeamA(State):
 
 
         # if colliding for too long
-        if self.collisionCount > 10:
+        if self.collisionCount > 6:
             self.wizard.path_graph = self.wizard.world.paths[self.wizard.entity_path_index(self.wizard)]
             nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
 
@@ -941,7 +938,7 @@ class WizardStateAttacking_TeamA(State):
             return "seeking"
 
         
-        print("INDEX", "                              ", self.dotIndex, self.dotCount, self.collisionCount) if OLDMYDEBUG else None
+        # print("INDEX", "                              ", self.dotIndex, self.dotCount, self.collisionCount) if OLDMYDEBUG else None
 
         return None
             
@@ -969,68 +966,107 @@ class WizardStateAttacking_TeamA(State):
 
 
         first_dot_index = 0
-        onScreenList = []
-        isPastFirstOffscreen = False
+        ogCircle = []
+        remainingDotsList = []
+        remainingSectionsList = []
+        inMiddleofList = False
 
-        # Create a loop to calculate the coordinates of each dot
+        # create og circle
         for i in range(num_dots):
-            # Add the dot coordinates to the list
-            # if dot is not off screen
-
-            x = target.position[0] + radius * math.cos(math.radians(i * angle))
-            y = target.position[1] + radius * math.sin(math.radians(i * angle))
-
-            # if on screen and first off screen has passed
-            if isPastFirstOffscreen and (x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
-                first_dot_index = i
-                break
-            
-            # if off screen
-            if not(x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
-                isPastFirstOffscreen = True
+            x = target.position[0] + radius * math.cos(math.radians(i * angle)) # x = r * cos(a)
+            y = target.position[1] + radius * math.sin(math.radians(i * angle)) # y = r * sin(a)
+            ogCircle.append((x,y))
         
+        # for each dot in ogcircle check if on screen, put sections of consecutive dots as nested list in remaining sections list
+        # at the same time, get closest dot to wizard
+        # find closest dot index in remaining dots list
+        closest_dot_section_index = 0
+        closest_distance = 1000000
+        for i in range(len(ogCircle)):
+            # set x and y
+            if self.badArea(ogCircle[i]):
+                inMiddleofList=False
+            else:
+                if not inMiddleofList:
+                    remainingSectionsList.append([])
+                    inMiddleofList = True
+                remainingSectionsList[-1].append(ogCircle[i])
+                remainingDotsList.append(ogCircle[i])
 
+                distance = (self.wizard.position - ogCircle[i]).length()
+                if distance < closest_distance:
+                    closest_distance = distance
+                    closest_dot_section_index = len(remainingSectionsList)-1
+        
+        # make closest dot section index the first section
+        remainingSectionsList = remainingSectionsList[closest_dot_section_index:] + remainingSectionsList[:closest_dot_section_index]
 
-        # Create a loop to calculate the coordinates of each dot
-        for i in range(num_dots):
-            # Add the dot coordinates to the list
+        closest_dot_index = 0
+        closest_distance = 1000000
 
-            x = target.position[0] + radius * math.cos(math.radians(i * angle))
-            y = target.position[1] + radius * math.sin(math.radians(i * angle))
-            onScreenList.append((x,y))
+        # convert remaining sections list to self.dot_list
+        for i in range(len(remainingSectionsList)):
+            for j in range(len(remainingSectionsList[i])):
+                self.dot_list.append(remainingSectionsList[i][j])
+                distance = (self.wizard.position - remainingSectionsList[i][j]).length()
+                if distance < closest_distance:
+                    closest_distance = distance
+                    closest_dot_index = len(self.dot_list)-1
+ 
 
-           
-        # change self.dot list to start at first dot index
-        onScreenList = onScreenList[first_dot_index:] + onScreenList[:first_dot_index]
+        # # Create a loop to calculate the coordinates of each dot
+        # for i in range(num_dots):
+        #     # Add the dot coordinates to the list
+        #     # if dot is not off screen
 
-        # remove off screen dots
-        for i in onScreenList:
+        #     x = target.position[0] + radius * math.cos(math.radians(i * angle))
+        #     y = target.position[1] + radius * math.sin(math.radians(i * angle))
+
+        #     # if on screen and first off screen has passed
+        #     if isPastFirstOffscreen and (x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
+        #         first_dot_index = i
+        #         break
             
+        #     # if off screen
+        #     if not(x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
+        #         isPastFirstOffscreen = True
+        
+        # # [[(316, 134),(293, 163),(324, 191),(352, 196),(352, 171)]]
+
+        # # Create a loop to calculate the coordinates of each dot
+        # for i in range(num_dots):
+        #     # Add the dot coordinates to the list
+
+        #     x = target.position[0] + radius * math.cos(math.radians(i * angle))
+        #     y = target.position[1] + radius * math.sin(math.radians(i * angle))
+        #     onScreenList.append((x,y))
+
            
-            if i[0] > 3 and i[0] < SCREEN_WIDTH -3 and i[1] > 3 and i[1] < SCREEN_HEIGHT -3:
-                
-                # append to self.dot_list
-                self.dot_list.append(i)
+        # # change self.dot list to start at first dot index
+        # onScreenList = onScreenList[first_dot_index:] + onScreenList[:first_dot_index]
+
 
                 
 
         # if last dot is closer than first dot, reverse the list
-        if (self.dot_list[0] - self.wizard.position).length() > (self.dot_list[len(self.dot_list) -1] - self.wizard.position).length():
-            # reverse list
-            self.dot_list = self.dot_list[::-1]
+        # if len(self.dot_list) == 0:
+        #     print(self.wizard.position)
+        # if (self.dot_list[0] - self.wizard.position).length() > (self.dot_list[-1] - self.wizard.position).length():
+        #     # reverse list
+        #     self.dot_list = self.dot_list[::-1]
 
             
 
         
      
         # find closest dot index in dot index list
-        closest_dot_index = 0
-        closest_distance = 1000000
-        for i in range(len(self.dot_list)):
-            distance = (self.wizard.position - self.dot_list[i]).length()
-            if distance < closest_distance:
-                closest_distance = distance
-                closest_dot_index = i
+        # closest_dot_index = 0
+        # closest_distance = 1000000
+        # for i in range(len(self.dot_list)):
+        #     distance = (self.wizard.position - self.dot_list[i]).length()
+        #     if distance < closest_distance:
+        #         closest_distance = distance
+        #         closest_dot_index = i
 
         
     
@@ -1055,6 +1091,35 @@ class WizardStateAttacking_TeamA(State):
             self.wizard.move_target.position = self.wizard.position
         
         return None
+
+    def badArea(self, position):
+        # confusion polygon where it is easy to get stuck
+        path2ConfusionPolygon = [(313, 132),(290, 160),(321, 190),(352, 196),(352, 171)]
+        path1ConfusionPolygon = [(110, 294),(95, 463),(203, 389)]
+
+        nearTowerOrBase = False
+        offScreen = False
+        buildings = []
+        
+        # check for towers on team
+        for i in self.wizard.world.entities:
+            entity = self.wizard.world.entities[i]
+            if entity.name == "tower" or entity.name == "base":
+                if entity.team_id != self.wizard.team_id and entity.team_id != 2:
+                    buildings += [entity]
+        
+        # set x and y
+        x = position[0]
+        y = position[1]
+        if not(x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
+            offScreen = True
+
+        if len(buildings) > 0:
+            # if position is in tower range, return true
+            for building in buildings:
+                if (building.position - position).length() <= 80:
+                    nearTowerOrBase = True
+        return self.wizard.point_in_polygon(position, path2ConfusionPolygon) or offScreen or nearTowerOrBase or self.wizard.point_in_polygon(position, path1ConfusionPolygon)
 
 
 
