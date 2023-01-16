@@ -173,6 +173,20 @@ class Knight_TeamA(Character):
                 if entity.owner.target == char:
                     self.targeted = entity 
 
+    def unstuck(self, char):
+        if char.position [0] < 0:
+            char.position[0] += 20
+        elif char.position[1] < 0:
+            char.position[1] += 20
+        elif char.position[0] > SCREEN_WIDTH:
+            char.position[0] -= 20
+        elif char.position[1] > SCREEN_HEIGHT:
+            char.position[1] -= 20
+        else:
+            if self.current_connection < self.path_length:
+                self.knight.move_target.position = self.path[self.current_connection].toNode.position
+                self.current_connection += 1
+                
         # print(self.targeted)
     def dodge_attack(self, char):
         if char.targeted:
