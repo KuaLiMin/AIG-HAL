@@ -59,7 +59,6 @@ class Wizard_TeamA(Character):
 
         
         if MYDEBUG:
-            widthbuffer = SCREEN_WIDTH/11
             heightbuffer = SCREEN_WIDTH/11
 
             # draw line heightbuffer pixels from the top and bottom of screen
@@ -231,8 +230,6 @@ class Wizard_TeamA(Character):
                      surface.blit(state_name, (int(coor[i][0]-10), int(coor[i][1]-10)))
                 
 
-            if hasattr(self, 'dot_list'):
-                print("oo")
 
 
 
@@ -279,15 +276,16 @@ class Wizard_TeamA(Character):
         
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
+            print("      CAN LEVEL UP", self.xp_to_next_level)
             # random number between 0 and 100
 
             choice = randint(0, 100)
 
             if choice < 50:
                 choice = 'hp'
-            elif choice < 80:
+            elif choice < 85:
                 choice = 'speed'
-            elif choice < 90:
+            elif choice < 95:
                 choice = 'ranged cooldown'
             else:
                 choice = 'ranged damage'
@@ -900,14 +898,7 @@ class WizardStateAttacking_TeamA(State):
         radius = self.wizard.min_target_distance -20
 
         if self.wizard.near_base(self.wizard, 5):
-            radius = self.wizard.min_target_distance - 20
-        
-        
-        # circle around target - 10 just in case
-        # if not(self.wizard.target.name == "orc" or self.wizard.target.name == "knight"):
-        #     if (self.wizard.min_target_distance < self.wizard.target.min_target_distance):
-        #         radius = (self.wizard.target.min_target_distance + self.wizard.min_target_distance)/2
-            
+            radius = self.wizard.min_target_distance -70
 
        
         distance_between_dots = 20
