@@ -7,10 +7,11 @@ import math
 
 from Character import *
 from State import *
+OLDMYDEBUG = False
 
-MYDEBUG = False
+MYDEBUG = True
 
-MOVETARGETDEBUG = False
+MOVETARGETDEBUG = True
 
 class Wizard_TeamA(Character):
 
@@ -99,15 +100,6 @@ class Wizard_TeamA(Character):
 
 
 
-            # draw world paths
-            # for connection in self.world.paths[1].connections:
-            #     pygame.draw.line(surface, (0, 0, 0), (int(connection.fromNode.position[0]), int(connection.fromNode.position[1])), (int(connection.toNode.position[0]), int(connection.toNode.position[1])), 1)
-
-            # draw world paths
-            # for connection in self.world.paths[0
-
-
-
             # draw circle around target
             if self.target is not None:
                 target = self.target
@@ -133,10 +125,7 @@ class Wizard_TeamA(Character):
                 for i in range(num_dots):
                     # Add the dot coordinates to the list
                     dot_list.append((target.position[0] + radius * math.cos(math.radians(i * angle)), target.position[1] + radius * math.sin(math.radians(i * angle))))
-
-                # Draw the dots
-                for dot in dot_list:
-                    pygame.draw.circle(surface, (0, 0, 0), dot, 5)      
+  
 
                 # if self.move_target is set, blit pink dot
                 if self.move_target is not None:
@@ -214,7 +203,7 @@ class Wizard_TeamA(Character):
 
                 # blit current hp above entity
                 font = pygame.font.SysFont("monospace", 15, True)
-                state_name = font.render(str((round(self.entitydamage(entity),0))) + "  "+ str(self.entity_path_index(entity)), True, (200, 255, 200))
+                state_name = font.render(str(entity.brain.active_state.name), True, (200, 255, 200))
                 surface.blit(state_name, (int(entity.position[0]-30), int(entity.position[1]-30)))
 
             # if self.wizard.dot_list exists
@@ -624,6 +613,8 @@ class WizardStateSeeking_TeamA(State):
 
     def do_actions(self):
 
+        
+
         self.wizard.velocity = self.wizard.move_target.position - self.wizard.position
         if self.wizard.velocity.length() > 0:
             self.wizard.velocity.normalize_ip();
@@ -659,6 +650,11 @@ class WizardStateSeeking_TeamA(State):
                     self.wizard.target = nearest_opponent
                     print("|| SEEKING > ATTACKING") if MYDEBUG else None
                     return "attacking"
+            elif opponent_distance >= self.wizard.min_target_distance *1.5 and self.wizard.current_hp/self.wizard.max_hp <= 0.9:
+                self.wizard.heal()
+
+        else:
+            self.wizard.heal()
         
         if (self.wizard.position - self.wizard.move_target.position).length() < 8:
 
@@ -675,23 +671,73 @@ class WizardStateSeeking_TeamA(State):
         # SET NEW PATH GRAPH IF NEAR BASE
 
         path_index = 0
+        oppTowerCount = 0
+        tower = None
+        towerCheck = False
 
-        if self.wizard.near_base(self.wizard,3.75):
+        # Makes wizard go for remaining tower, disabled for now.
 
-            # if should leave
+        # # check if opposing towers are alive
+        # for i in self.wizard.world.entities:
+        #     entity = self.wizard.world.entities[i]
+        #     if entity.name == "tower":
+        #         if not(entity is None):
+        #             if entity.team_id != self.wizard.team_id and entity.team_id != 2:
+        #                 oppTowerCount += 1
+        #                 tower = entity
 
-            if self.wizard.leaveTowersAlone():
-                path_index = self.wizard.neglected_path_index()
-                print("SEEKING | NEGLECTED PATH", end=" | ") if MYDEBUG else None
+        print("                          TOWER COUNT: ", oppTowerCount) 
+                        
+                        
+        if oppTowerCount !=1 or towerCheck == False:
+            if self.wizard.near_base(self.wizard,3.75):
 
-            # if should stay
+                # if should leave
+
+                if self.wizard.leaveTowersAlone():
+                    path_index = self.wizard.neglected_path_index()
+                    print("SEEKING | NEGLECTED PATH", end=" | ") if MYDEBUG else None
+
+                # if should stay
+                else:
+                    # pick path of strongest nearby opponent
+                    path_index = self.wizard.entity_path_index(self.wizard.near_base_strongest_opponent())
+                    print("SEEKING | STRONGEST NEARBY PATH", end=" | ") if MYDEBUG else None
+
+                print(path_index)  if MYDEBUG else None
+
+                # set path to new path
+
+                self.wizard.path_graph = self.wizard.world.paths[path_index]
+
+                nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
+
+                self.path = pathFindAStar(self.wizard.path_graph, \
+                                    nearest_node, \
+                                    self.wizard.world.paths[path_index].nodes[self.wizard.base.target_node_index])
+
+                
+            # not near base, continue with current path
             else:
-                # pick path of strongest nearby opponent
-                path_index = self.wizard.entity_path_index(self.wizard.near_base_strongest_opponent())
-                print("SEEKING | STRONGEST NEARBY PATH", end=" | ") if MYDEBUG else None
+                self.wizard.path_graph = self.wizard.world.paths[self.wizard.entity_path_index(self.wizard)]
+        
+                nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
+                self.path = pathFindAStar(self.wizard.path_graph, \
+                                nearest_node, \
+                                self.wizard.path_graph.nodes[self.wizard.base.target_node_index])
 
-            print(path_index)  if MYDEBUG else None
+                print("SEEKING | CONTINUE TO OPPOSING BASE") if MYDEBUG else None
+        else:
+            
+            nearest_node_path_1 = self.wizard.world.paths[1].get_nearest_node(tower.position)
+            nearest_node_path_0 = self.wizard.world.paths[0].get_nearest_node(tower.position)
 
+            if (nearest_node_path_1.position - tower.position).length() < (nearest_node_path_0.position - tower.position).length():
+                path_index = 1
+            else:
+                path_index = 0
+
+            print("NEW PATH                  TOWERSAT: ", path_index) if MYDEBUG else None
             # set path to new path
 
             self.wizard.path_graph = self.wizard.world.paths[path_index]
@@ -702,17 +748,7 @@ class WizardStateSeeking_TeamA(State):
                                 nearest_node, \
                                 self.wizard.world.paths[path_index].nodes[self.wizard.base.target_node_index])
 
-            
-        # not near base, continue with current path
-        else:
-            self.wizard.path_graph = self.wizard.world.paths[self.wizard.entity_path_index(self.wizard)]
-    
-            nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
-            self.path = pathFindAStar(self.wizard.path_graph, \
-                               nearest_node, \
-                               self.wizard.path_graph.nodes[self.wizard.base.target_node_index])
 
-            print("SEEKING | CONTINUE TO OPPOSING BASE") if MYDEBUG else None
 
         
 
@@ -755,6 +791,9 @@ class WizardStateReturning_TeamA(State):
 
             print("|| RETURNING > SEEKING") if MYDEBUG else None
             return "seeking"
+        else:
+            if self.wizard.current_hp/self.wizard.max_hp <= 0.9:
+                self.wizard.heal()
 
 
 
@@ -809,6 +848,8 @@ class WizardStateAttacking_TeamA(State):
         self.collision = False
 
     def do_actions(self):
+
+        print("       ", self.collisionCount)
 
         opponent_distance = (self.wizard.position - self.wizard.target.position).length()
 
@@ -889,7 +930,7 @@ class WizardStateAttacking_TeamA(State):
 
 
         # if colliding for too long
-        if self.collisionCount > 300:
+        if self.collisionCount > 10:
             self.wizard.path_graph = self.wizard.world.paths[self.wizard.entity_path_index(self.wizard)]
             nearest_node = self.wizard.path_graph.get_nearest_node(self.wizard.position)
 
@@ -900,7 +941,7 @@ class WizardStateAttacking_TeamA(State):
             return "seeking"
 
         
-        print("INDEX", "                              ", self.dotIndex, self.dotCount, self.collisionCount) if MYDEBUG else None
+        print("INDEX", "                              ", self.dotIndex, self.dotCount, self.collisionCount) if OLDMYDEBUG else None
 
         return None
             
