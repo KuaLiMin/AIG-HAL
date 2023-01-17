@@ -67,7 +67,7 @@ class Archer_TeamA(Character):
         
         level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
         if self.can_level_up():
-            choice = 2
+            choice = randint(1, 3)
             # choice = randint(0, len(level_up_stats) - 1)
             self.level_up(level_up_stats[choice])   
 
@@ -300,11 +300,7 @@ class ArcherStateAttacking_TeamA(State):
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
 
-            if self.archer.target.name == "tower":
-                if self.archer.to_dodgeTower():
-                    return "dodgeEnemy"
-
-            if self.archer.target.name == "archer":
+            if self.archer.target.name in ["archer", "tower", "base", "wizard"]:
                 return "dodgeEnemy"
 
             #Move backwards if opponent is within this distance
