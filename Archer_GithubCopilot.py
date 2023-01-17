@@ -39,13 +39,11 @@ class Archer_TeamA(Character):
 
         seeking_state = ArcherStateSeeking_TeamA(self)
         attacking_state = ArcherStateAttacking_TeamA(self)
-        dodgeTower_state = ArcherStateDodgeTower_TeamA(self)
         dodgeEnemy_state = ArcherStateDodgeEnemy_TeamA(self)
         ko_state = ArcherStateKO_TeamA(self)
 
         self.brain.add_state(seeking_state)
         self.brain.add_state(attacking_state)
-        self.brain.add_state(dodgeTower_state)
         self.brain.add_state(dodgeEnemy_state)
         self.brain.add_state(ko_state)
 
@@ -65,10 +63,10 @@ class Archer_TeamA(Character):
         
         Character.process(self, time_passed)
         
-        level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
+        # level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
+        level_up_stats = ["ranged cooldown", "speed", "ranged damage"]
         if self.can_level_up():
-            choice = randint(1, 3)
-            # choice = randint(0, len(level_up_stats) - 1)
+            choice = randint(0, 2)
             self.level_up(level_up_stats[choice])   
 
 
@@ -351,81 +349,6 @@ class ArcherStateAttacking_TeamA(State):
         return None
 
 
-class ArcherStateDodgeTower_TeamA(State):
-
-    def __init__(self, archer):
-
-        State.__init__(self, "dodgeTower")
-        self.archer = archer
-
-
-    def do_actions(self):
-
-        #Update nearest opponent
-        nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
-        if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance and not self.dodging:
-            if (nearest_opponent.name == "orc" or nearest_opponent.name == "knight") and \
-                (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance - 50:
-                self.archer.target = nearest_opponent
-
-        self.archer.set_velocity(self.archer.move_target.position)
-
-
-    def check_conditions(self):
-
-        if self.archer.current_hp/self.archer.max_hp <= 0.4:
-            self.archer.heal()
-
-        #Go back to attacking if knight or orc detected
-        # if self.archer.target.team_id != self.archer.team_id:
-        #     if self.archer.target.name == "knight" or self.archer.target.name =="orc":
-        #         return "attacking"
-
-        opponent_distance = (self.archer.position - self.archer.target.position).length()
-        if opponent_distance <= self.archer.min_target_distance:
-            if self.archer.current_ranged_cooldown <= 0:
-                self.archer.ranged_attack(self.archer.target.position)
-
-        if (self.archer.position - self.archer.move_target.position).length() < 8:
-            if self.dodging or\
-                (self.archer.target.team_id != self.archer.team_id and self.archer.target.name in ["knight", "orc"]) :
-                return "attacking"
-
-            else:
-                self.archer.velocity = Vector2(0, 0)
-
-
-        for entity in self.archer.world.entities.values():
-            if entity.team_id != self.archer.team_id and entity.name == "projectile":
-                if (self.archer.position - entity.position).length() <= self.archer.min_target_distance:
-                    if (self.archer.position - self.archer.move_target.position).length() < 8:
-                        if self.archer.nearest_edge() == "right":
-                            self.archer.move_target.position = Vector2(self.archer.position[0] - 70, self.archer.position[1] - 30)
-                            self.dodging = True
-
-                        elif self.archer.nearest_edge() == "top":
-                            self.archer.move_target.position = Vector2(self.archer.position[0] - 30, self.archer.position[1] + 70)
-                            self.dodging = True
-
-        # target is gone
-        if self.archer.world.get(self.archer.target.id) is None or self.archer.target.ko:
-            self.archer.target = None
-            return "seeking"
-                
-        return None
-
-    def entry_actions(self):
-        if self.archer.lane == "top":
-            if self.archer.nearest_edge() == "up":
-                self.archer.move_target.position = Vector2(self.archer.target.position[0] - self.archer.min_target_distance + 60, 10)
-            if self.archer.nearest_edge() == "right":
-                self.archer.move_target.position = Vector2(SCREEN_WIDTH - 10, self.archer.target.position[1] - self.archer.min_target_distance + 60)
-
-            self.dodging = False
-        
-        return None
-
-
 class ArcherStateDodgeEnemy_TeamA(State):
 
     def __init__(self, archer):
@@ -433,6 +356,7 @@ class ArcherStateDodgeEnemy_TeamA(State):
         State.__init__(self, "dodgeEnemy")
         self.archer = archer
         self.wait = False
+        self.move_count = 0
 
     def do_actions(self):
 
@@ -470,6 +394,7 @@ class ArcherStateDodgeEnemy_TeamA(State):
             if (self.archer.position - self.archer.move_target.position).length() < 8:
                 self.point_index += self.increment
                 self.archer.move_target.position = self.move_list[self.point_index]
+                self.move_count += 1
 
         else:
             self.archer.velocity = Vector2(0, 0)
@@ -478,12 +403,19 @@ class ArcherStateDodgeEnemy_TeamA(State):
                     if (self.archer.position - entity.position).length() <= self.archer.min_target_distance:
                         self.wait = False      
 
+        if self.move_count > 15:
+            self.increment *= -1
+            self.point_index += self.increment
+            self.archer.move_target.position = self.move_list[self.point_index]
+            self.move_count = 0
+
         if self.archer.move_target.position[0] <= 5 or self.archer.move_target.position[0] >= SCREEN_WIDTH - 5 or\
             self.archer.move_target.position[1] <= 5 or self.archer.move_target.position[1] >= SCREEN_HEIGHT - 5:
             self.increment *= -1
             self.point_index += self.increment
             self.archer.move_target.position = self.move_list[self.point_index]
             self.wait = True
+            self.move_count = 0
         
         for entity in self.archer.world.entities.values():
             if entity.name == "obstacle":
@@ -492,6 +424,7 @@ class ArcherStateDodgeEnemy_TeamA(State):
                     self.point_index += self.increment
                     self.archer.move_target.position = self.move_list[self.point_index]
                     self.wait = True
+                    self.move_count = 0
 
     def entry_actions(self):
 
