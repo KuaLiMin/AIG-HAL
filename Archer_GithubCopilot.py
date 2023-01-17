@@ -1,10 +1,12 @@
-import pygame
-
 from random import randint, random
-from Graph import *
+
+import pygame
+import math
 
 from Character import *
+from Graph import *
 from State import *
+
 
 class Archer_TeamA(Character):
 
@@ -26,7 +28,8 @@ class Archer_TeamA(Character):
         #Path initialization
         self.graph = Graph(self)
         self.generate_pathfinding_graphs("archer_pathfinding.txt")
-        self.reset_points = [Vector2(310, 80), Vector2(484, 80), Vector2(705,71), Vector2(870,80), Vector2(925,390), Vector2(876,508), Vector2(940, 190),#Top Lane
+        self.reset_points = [Vector2(310, 80), Vector2(484, 80), Vector2(705,71), Vector2(870,80), #Top Lane
+                            Vector2(925,390), Vector2(876,508), Vector2(940, 190), Vector2(943,294),#Top Lane
                             Vector2(90,390), Vector2(80,520), Vector2(180,670), Vector2(447,721), Vector2(630, 710), Vector2(755, 680)] #Bot Lane
 
         self.maxSpeed = 50
@@ -128,11 +131,6 @@ class Archer_TeamA(Character):
 
 
     def reached_boundary(self):
-
-        #Check if edge of screen
-        if self.position[0] <= 0 or self.position[0] >= SCREEN_WIDTH or\
-            self.position[1] <= 0 or self.position[1] >= SCREEN_HEIGHT:
-            return True
         
         #Check if touches base or obstacle
         collision_list = pygame.sprite.spritecollide(self, self.world.obstacles, False, pygame.sprite.collide_mask)
@@ -185,7 +183,7 @@ class Archer_TeamA(Character):
         for entity in self.world.entities.values():
             if entity.team_id != self.team_id and entity.name == "tower":
                 #Check if archer is in range of enemy to dodge
-                if (self.position - entity.position).length() <= entity.min_target_distance:
+                if (self.position - entity.position).length() <= self.min_target_distance:
                     self.target = entity
                     return True
         
@@ -224,7 +222,7 @@ class ArcherStateSeeking_TeamA(State):
     
         # Go to dodgeTower state
         if self.archer.to_dodgeTower():
-            return "dodgeTower"
+            return "dodgeEnemy"
 
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
@@ -304,7 +302,7 @@ class ArcherStateAttacking_TeamA(State):
 
             if self.archer.target.name == "tower":
                 if self.archer.to_dodgeTower():
-                    return "dodgeTower"
+                    return "dodgeEnemy"
 
             if self.archer.target.name == "archer":
                 return "dodgeEnemy"
@@ -438,7 +436,7 @@ class ArcherStateDodgeEnemy_TeamA(State):
 
         State.__init__(self, "dodgeEnemy")
         self.archer = archer
-        self.move_up = False
+        self.wait = False
 
     def do_actions(self):
 
@@ -471,26 +469,63 @@ class ArcherStateDodgeEnemy_TeamA(State):
             self.archer.target = None
             return "seeking"
 
-        #If move_target reached, switch target
-        if self.archer.target.name == "archer":
+        #Dodging mechanic
+        if not self.wait:
             if (self.archer.position - self.archer.move_target.position).length() < 8:
-                if self.archer.nearest_edge() == "up":
-                    self.archer.velocity = Vector2(0, 0)
-                    for entity in self.archer.world.entities.values():
-                        if entity.team_id != self.archer.team_id and entity.name == "projectile" and\
-                            (entity.position - self.archer.position).length() <= self.archer.min_target_distance:
-                            if self.move_up:
-                                self.archer.move_target.position = Vector2(self.archer.position[0], 70)
-                                self.move_up = False
-                            else:
-                                self.archer.move_target.position = Vector2(self.archer.position[0], 10)
-                                self.move_up = True
+                self.point_index += self.increment
+                self.archer.move_target.position = self.move_list[self.point_index]
 
+        else:
+            self.archer.velocity = Vector2(0, 0)
+            for entity in self.archer.world.entities.values():
+                if entity.team_id != self.archer.team_id and entity.name == "projectile":
+                    if (self.archer.position - entity.position).length() <= self.archer.min_target_distance:
+                        self.wait = False      
+
+        if self.archer.move_target.position[0] <= 5 or self.archer.move_target.position[0] >= SCREEN_WIDTH - 5 or\
+            self.archer.move_target.position[1] <= 5 or self.archer.move_target.position[1] >= SCREEN_HEIGHT - 5:
+            self.increment *= -1
+            self.point_index += self.increment
+            self.archer.move_target.position = self.move_list[self.point_index]
+            self.wait = True
+        
+        for entity in self.archer.world.entities.values():
+            if entity.name == "obstacle":
+                if entity.rect.collidepoint(self.move_list[self.point_index]):
+                    self.increment *= -1
+                    self.point_index += self.increment
+                    self.archer.move_target.position = self.move_list[self.point_index]
+                    self.wait = True
 
     def entry_actions(self):
 
-        self.archer.move_target.position = self.archer.position
+        #Similar logic as code in Wizard Attacking state, dodge in circular formation
+        self.move_list = []
+        point_dist = 10
+        radius = self.archer.min_target_distance
+        circumference = 2*math.pi*self.archer.min_target_distance
+        point_count = int(circumference/point_dist)
+        angle = 360/point_count
 
+        #Generate points
+        for i in range(point_count):
+            x = self.archer.target.position[0] + radius * math.cos(math.radians(i*angle))
+            y = self.archer.target.position[1] + radius * math.sin(math.radians(i*angle))
+
+            pos = Vector2(x, y)
+            self.move_list.append(Vector2(x, y))
+    
+
+        #Get closest point
+        self.point_index = 0
+        closest = 99999999
+        for i in range(len(self.move_list)):
+            if (self.archer.position - self.move_list[i]).length() < closest:
+                closest = (self.archer.position - self.move_list[i]).length()
+                self.point_index = i
+
+        self.archer.move_target.position = self.move_list[self.point_index]
+        self.increment = 1
         return None
 
 
