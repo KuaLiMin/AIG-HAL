@@ -19,8 +19,10 @@ class Knight_TeamA(Character):
         self.move_target = GameEntity(world, "knight_move_target", None)
         self.target = None
         self.targeted = None
+        self.graph = Graph(self)
+        self.generate_pathfinding_graphs("knight_pathfinding_graph.txt")
         self.tower = []
-
+        self.archer = None
 
         self.maxSpeed = 80
         self.min_target_distance = 100
@@ -41,7 +43,6 @@ class Knight_TeamA(Character):
     def render(self, surface):
 
         Character.render(self, surface)
-       
 
     def process(self, time_passed):
         
@@ -49,14 +50,66 @@ class Knight_TeamA(Character):
 
         level_up_stats = ["hp", "speed", "melee damage", "melee cooldown"]
         if self.can_level_up():
-            choice = randint(0, 100)
+            # print("enemy tower", self.tower
 
-            if choice < 50:
-                choice = 'hp'
-            elif choice < 90:
-                choice = 'speed'
-            else:
-                choice = 'melee damage'
+            self.level_up("hp")   
+            
+    def generate_pathfinding_graphs(self, filename):
+        f = open(filename, "r")
+
+        # Create the nodes
+        line = f.readline()
+        while line != "connections\n":
+            data = line.split()
+            self.graph.nodes[int(data[0])] = Node(self.graph, int(data[0]), int(data[1]), int(data[2]))
+            line = f.readline()
+
+        # Create the connections
+        line = f.readline()
+        while line != "paths\n":
+            data = line.split()
+            node0 = int(data[0])
+            node1 = int(data[1])
+            distance = (Vector2(self.graph.nodes[node0].position) - Vector2(self.graph.nodes[node1].position)).length()
+            self.graph.nodes[node0].addConnection(self.graph.nodes[node1], distance)
+            self.graph.nodes[node1].addConnection(self.graph.nodes[node0], distance)
+            line = f.readline()
+        
+        self.paths = []
+        line = f.readline()
+        while line != "":
+            path = Graph(self)
+            data = line.split()
+
+            #create nodes
+            for i in range(0, len(data)):
+                node = self.graph.nodes[int(data[i])]
+                path.nodes[int(data[i])] = Node(path, int(data[i]), node.position[0], node.position[1])
+
+            #create connections
+            for i in range(0, len(data) - 1):
+                node0 = int(data[i])
+                node1 = int(data[i + 1])
+                distance = (Vector2(self.graph.nodes[node0].position) - Vector2(self.graph.nodes[node1].position)).length()
+                path.nodes[node0].addConnection(path.nodes[node1], distance)
+                path.nodes[node1].addConnection(path.nodes[node0], distance)
+
+            self.paths.append(path)
+
+            line = f.readline()
+
+        f.close()
+
+    def get_own_archer(self, char):
+        own_archer = None
+        for entity in self.world.entities.values():
+            if entity.team_id == 2 or entity.team_id != char.team_id:
+                continue
+
+            if entity.name == 'archer':
+                own_archer = entity
+        return own_archer     
+
 
             self.level_up(choice)     
 
@@ -134,27 +187,27 @@ class Knight_TeamA(Character):
 
             if entity.name == 'knight' or entity.name == 'archer' or entity.name == 'wizard':
                 enemy = entity
-                enemy_path2 = enemy.brain.states['seeking'].path
+                enemy_path2 = enemy.path_graph
                 for i in range(0, len(self.world.paths)):
                     if enemy_path2 == self.world.paths[i]:
                         orc_lane[str(i)] += enemy.melee_damage
             
-            if entity.name == 'tower' and entity.ko == True:
-                # print("tower dead")
-                lane_with_least == self.world.paths[0]
-                return lane_with_least
+            # if entity.name == 'tower' and entity.ko == True:
+            #     # print("tower dead")
+            #     lane_with_least == self.paths[0]
+            #     return lane_with_least
     
-        if len(enemy_tower) == 2 or len(enemy_tower) == 0:
+        # if len(enemy_tower) == 2 or len(enemy_tower) == 0:
+        if len(enemy_tower) == 2:
             for key in orc_lane.keys():
                 if orc_lane[key] == min(orc_lane.values()):
-                    lane_with_least = self.world.paths[int(key)]
+                    lane_with_least = self.paths[int(key)]
                     # print("lane_values", orc_lane.values(), "key", key)
                 continue
         else:
-            if (enemy_tower[0][0] <= char.tower[0][0]):
-                lane_with_least = self.world.paths[0]
-            else:
-                lane_with_least = self.world.paths[1]
+            self.archer = char.get_own_archer(char)
+            lane_with_least = self.paths[0]
+            # if (enemy_tower[0][0] <= char.tower[0][0]):
 
         # print("lane 3", lane_with_least)
         # print(lane_with_least)
@@ -224,6 +277,9 @@ class KnightStateSeeking_TeamA(State):
 
     def do_actions(self):
 
+        if self.knight.tower == []:
+            self.knight.tower = self.knight.get_enemy_tower(self.knight)
+        
         self.knight.get_targeted(self.knight)
         self.knight.dodge_attack(self.knight)
         self.knight.velocity = self.knight.move_target.position - self.knight.position
@@ -236,7 +292,11 @@ class KnightStateSeeking_TeamA(State):
         # # check if opponent is in range
         # self.knight.get_targeted(self.knight)
         self.knight.path_graph = self.knight.get_least_lane(self.knight)
-        nearest_opponent = self.knight.get_nearest_tower(self.knight)
+
+        if self.knight.archer == None:
+            nearest_opponent = self.knight.get_nearest_tower(self.knight)
+        else:
+            nearest_opponent = self.knight.world.get_nearest_opponent(self.knight)
 
         if nearest_opponent is not None:
             opponent_distance = (self.knight.position - nearest_opponent.position).length()
@@ -265,7 +325,7 @@ class KnightStateSeeking_TeamA(State):
 
         self.path = pathFindAStar(self.knight.path_graph, \
                                   nearest_node, \
-                                  self.knight.path_graph.nodes[self.knight.base.target_node_index])
+                                  self.knight.path_graph.nodes[10])
 
         self.path_length = len(self.path)
 
