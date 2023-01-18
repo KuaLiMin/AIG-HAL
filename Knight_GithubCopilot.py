@@ -111,8 +111,6 @@ class Knight_TeamA(Character):
         return own_archer     
 
 
-            self.level_up(choice)     
-
     def get_enemy_tower(self, char):
         enemy_tower = []
 
