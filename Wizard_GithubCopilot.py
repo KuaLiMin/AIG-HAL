@@ -910,15 +910,14 @@ class WizardStateAttacking_TeamA(State):
 
             
             if self.dotIndex + 1 == len(self.dot_list) or self.dotIndex == 0 or self.collisionCount == 1:
-                print("changed direction")
                 # change multiplier
                 self.multiplier = -self.multiplier
 
-            if self.dotIndex <= self.dotCount:
-
-
+            if self.dotIndex < len(self.dot_list):
                 self.wizard.move_target.position = self.dot_list[self.dotIndex]
                 self.dotIndex+=self.multiplier
+
+            print(self.dotIndex)
         else:
             self.wizard.velocity = self.wizard.move_target.position - self.wizard.position
             if self.wizard.velocity.length() > 0:
