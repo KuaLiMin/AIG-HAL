@@ -917,7 +917,6 @@ class WizardStateAttacking_TeamA(State):
                 self.wizard.move_target.position = self.dot_list[self.dotIndex]
                 self.dotIndex+=self.multiplier
 
-            print(self.dotIndex)
         else:
             self.wizard.velocity = self.wizard.move_target.position - self.wizard.position
             if self.wizard.velocity.length() > 0:
