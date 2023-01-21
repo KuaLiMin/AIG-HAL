@@ -6,8 +6,6 @@ from Graph import *
 from Character import *
 from State import *
 
-from Orc import *
-
 class Knight_TeamA(Character):
 
     def __init__(self, world, image, base, position):
@@ -18,11 +16,12 @@ class Knight_TeamA(Character):
         self.position = position
         self.move_target = GameEntity(world, "knight_move_target", None)
         self.target = None
-        self.targeted = None
+        self.can_heal = False
+
         self.graph = Graph(self)
         self.generate_pathfinding_graphs("knight_pathfinding_graph.txt")
         self.tower = []
-        self.archer = None
+
 
         self.maxSpeed = 80
         self.min_target_distance = 100
@@ -41,8 +40,41 @@ class Knight_TeamA(Character):
         
 
     def render(self, surface):
+        # for i in range(len(self.world.graph.nodes)):
+        #     pygame.draw.circle(surface, (0, 0, 0), (self.world.graph.nodes[i].position[0], self.world.graph.nodes[i].position[1]), int(5))
+        #     font = pygame.font.SysFont("arial", 12, True)
+        #     node_pos = font.render((str(self.world.graph.nodes[i].position)), True, (255, 255, 255))
+        #     surface.blit(node_pos, self.world.graph.nodes[i].position)
 
+        #     heal = font.render(str(self.can_heal), True, (255, 255, 255))
+        #     surface.blit(heal, (self.position[0], self.position[1] + 30))
+
+        for i in range(0, 33):
+            if i == 12 or i == 27 or i ==28 or i ==21 or i == 22:
+                continue
+            pygame.draw.circle(surface, (0, 0, 0), (self.graph.nodes[i].position[0], self.graph.nodes[i].position[1]), int(5))
+            font = pygame.font.SysFont("arial", 12, True)
+            node_pos = font.render((str(self.graph.nodes[i].position)), True, (255, 255, 255))
+            surface.blit(node_pos, self.graph.nodes[i].position)
+
+        # pygame.draw.circle(surface, (255,0,0), (800, 685), int(5))
+        # pygame.draw.circle(surface, (255,0,0), (940, 550), int(5))
+        # pygame.draw.circle(surface, (255,0,0), (650, 555), int(5))
+        # pygame.draw.circle(surface, (255,0,0), (740, 590), int(5))
+        # pygame.draw.circle(surface, (255,0,0), (750, 440), int(5))
+        # pygame.draw.circle(surface, (255,0,0), (840, 500), int(5))
+
+        pygame.draw.circle(surface, (0, 0, 0), (int(self.position[0]), int(self.position[1])), int(self.min_target_distance), int(2))
+
+        font = pygame.font.SysFont("arial", 12, True)
+        state_name = font.render(self.brain.active_state.name, True, (255, 255, 255))
+        surface.blit(state_name, self.position)
+
+        if self.targeted:
+            pygame.draw.line(surface, (0, 255, 0), self.position, self.targeted.position)
+            pygame.draw.circle(surface, (255, 0, 0), (int(self.position[0]), int(self.position[1])), int(40), int(2))
         Character.render(self, surface)
+
 
     def process(self, time_passed):
         
@@ -50,10 +82,9 @@ class Knight_TeamA(Character):
 
         level_up_stats = ["hp", "speed", "melee damage", "melee cooldown"]
         if self.can_level_up():
-            # print("enemy tower", self.tower
+            print(self.xp)
+            self.level_up(level_up_stats[0])
 
-            self.level_up("hp")   
-            
     def generate_pathfinding_graphs(self, filename):
         f = open(filename, "r")
 
@@ -100,19 +131,6 @@ class Knight_TeamA(Character):
 
         f.close()
 
-    def get_own_archer(self, char):
-        own_archer = None
-        for entity in self.world.entities.values():
-            if entity.team_id == 2 or entity.team_id != char.team_id:
-                continue
-
-            if entity.name == 'archer':
-                own_archer = entity
-        return own_archer     
-
-
-            self.level_up(choice)     
-
     def get_enemy_tower(self, char):
         enemy_tower = []
 
@@ -132,23 +150,22 @@ class Knight_TeamA(Character):
         
         return enemy_tower
 
-    def get_nearest_tower(self, char):
-
+    def get_nearest_tower(self,char):
         nearest_tower = None
         distance = 0.
-
+        heal_dist = self.maxSpeed * self.healing_cooldown
+        print(heal_dist)
+        
         for entity in self.world.entities.values():
-
             if entity.team_id == 2:
                 continue
-
             if entity.team_id == char.team_id:
                 continue
-
-            if entity.name == "projectile" or entity.name == "explosion" or entity.name == "knight" or entity.name == "archer" or entity.name =="wizard" or entity.name == "orc":
+            if entity.name == "projectile" or entity.name == "explosion":
                 continue
-
-            if entity.ko:
+            if entity.name == "knight" or entity.name == "archer" or entity.name == "wizard" or entity.name == "orc":
+                continue
+            if entity.ko: 
                 continue
 
             if nearest_tower is None:
@@ -158,6 +175,9 @@ class Knight_TeamA(Character):
                 if distance > (char.position - entity.position).length():
                     distance = (char.position - entity.position).length()
                     nearest_tower = entity
+                
+        if (char.position - nearest_tower.position).length() > heal_dist:
+            self.can_heal = True
         
         return nearest_tower
 
@@ -166,7 +186,6 @@ class Knight_TeamA(Character):
         orc_lane = {'0':0, '1':0, '2':0, '3':0}
 
         enemy_tower = char.get_enemy_tower(char)
-
 
         lane_with_least = None
         # print(parameter)
@@ -183,19 +202,16 @@ class Knight_TeamA(Character):
                     if enemy_path == self.world.paths[i]:
                     #    print(list(orc_lane.values())[i])
                     #    print("orc", orc_lane[str(i)])
-                        orc_lane[str(i)] += enemy_orc.melee_damage
+                        orc_lane[str(i)] += enemy_orc.melee_damage #if target is tower
+                        # orc_lane[str(i)] += 1 #if target is orcs
 
             if entity.name == 'knight' or entity.name == 'archer' or entity.name == 'wizard':
                 enemy = entity
                 enemy_path2 = enemy.path_graph
                 for i in range(0, len(self.world.paths)):
                     if enemy_path2 == self.world.paths[i]:
-                        orc_lane[str(i)] += enemy.melee_damage
-            
-            # if entity.name == 'tower' and entity.ko == True:
-            #     # print("tower dead")
-            #     lane_with_least == self.paths[0]
-            #     return lane_with_least
+                        orc_lane[str(i)] += enemy.melee_damage #if target is tower
+                        # orc_lane[str(i)] += 100 #if target is orcs
     
         # if len(enemy_tower) == 2 or len(enemy_tower) == 0:
         if len(enemy_tower) == 2:
@@ -208,61 +224,16 @@ class Knight_TeamA(Character):
             self.archer = char.get_own_archer(char)
             lane_with_least = self.paths[0]
             # if (enemy_tower[0][0] <= char.tower[0][0]):
+            #     lane_with_least = self.world.paths[0]
+            # else:
+            #     lane_with_least = self.world.paths[1]
 
-        # print("lane 3", lane_with_least)
+        print("lane least", lane_with_least)
         # print(lane_with_least)
+        # print("orc lane", orc_lane)
         return lane_with_least
-    
-    def get_targeted(self, char):
-        for entity in self.world.entities.values():
-            if entity.team_id == char.team_id or entity.team_id == 2:
-                continue
 
-            if entity.name == 'orc' or entity.name == 'knight':
-                if entity.target == char:
-                    self.targeted = entity
-
-            if entity.name == 'projectile' or entity.name == 'explosion':
-                if entity.owner.target == char:
-                    self.targeted = entity 
-
-    def unstuck(self, char):
-        if char.position [0] < 0:
-            char.position[0] += 20
-        elif char.position[1] < 0:
-            char.position[1] += 20
-        elif char.position[0] > SCREEN_WIDTH:
-            char.position[0] -= 20
-        elif char.position[1] > SCREEN_HEIGHT:
-            char.position[1] -= 20
-        else:
-            if self.current_connection < self.path_length:
-                self.knight.move_target.position = self.path[self.current_connection].toNode.position
-                self.current_connection += 1
-                
-        # print(self.targeted)
-    def dodge_attack(self, char):
-        if char.targeted:
-            if(char.position - char.targeted.position).length() < 10:
-                # print("dodged")
-                if char.position[0] < char.targeted.position[0] and char.position[1] > char.targeted.position[1]:
-                    char.position[0] += 20
-                if char.position[0] > char.targeted.position[0] and char.position[1] < char.targeted.position[1]:
-                    char.position[1] += 20
-                if char.position[0] == char.targeted.position[0] and char.position[1] < char.targeted.position[1]:
-                    char.position[0] += 20
-                if char.position[0] < char.targeted.position[0] and char.position[1] == char.targeted.position[1]:
-                    char.position[1] += 20
-                if char.position[0] > char.targeted.position[0] and char.position[1] > char.targeted.position[1]:
-                    char.position[0] += 20
-                if char.position[0] < char.targeted.position[0] and char.position[1] > char.targeted.position[1]:
-                    char.position[0] += 20
-                if char.position[0] == char.targeted.position[0] and char.position[1] > char.targeted.position[1]:
-                    char.position[0] += 20
-                if char.position[0] > char.targeted.position[0] and char.position[1] == char.targeted.position[1]:
-                    char.position[1] += 20
-                # char.targeted.position[randint(0,1)] += 20
-
+    # def targeted(self, char):
 
 
 class KnightStateSeeking_TeamA(State):
@@ -271,17 +242,12 @@ class KnightStateSeeking_TeamA(State):
 
         State.__init__(self, "seeking")
         self.knight = knight
-        # print("instantiate")
-        self.knight.path_graph = self.knight.get_least_lane(self.knight)
+
+        self.knight.path_graph = self.knight.world.paths[randint(0, len(self.knight.world.paths)-1)]
 
 
     def do_actions(self):
 
-        if self.knight.tower == []:
-            self.knight.tower = self.knight.get_enemy_tower(self.knight)
-        
-        self.knight.get_targeted(self.knight)
-        self.knight.dodge_attack(self.knight)
         self.knight.velocity = self.knight.move_target.position - self.knight.position
         if self.knight.velocity.length() > 0:
             self.knight.velocity.normalize_ip();
@@ -289,20 +255,17 @@ class KnightStateSeeking_TeamA(State):
 
 
     def check_conditions(self):
-        # # check if opponent is in range
-        # self.knight.get_targeted(self.knight)
-        self.knight.path_graph = self.knight.get_least_lane(self.knight)
 
-        if self.knight.archer == None:
-            nearest_opponent = self.knight.get_nearest_tower(self.knight)
-        else:
-            nearest_opponent = self.knight.world.get_nearest_opponent(self.knight)
+        if self.can_heal:
+            self.knight.heal()
+            self.can_heal = False
 
+        # check if opponent is in range
+        nearest_opponent = self.knight.world.get_nearest_opponent(self.knight)
         if nearest_opponent is not None:
             opponent_distance = (self.knight.position - nearest_opponent.position).length()
             if opponent_distance <= self.knight.min_target_distance:
                     self.knight.target = nearest_opponent
-                    self.knight.targeted = None
                     return "attacking"
         
         if (self.knight.position - self.knight.move_target.position).length() < 8:
@@ -311,22 +274,19 @@ class KnightStateSeeking_TeamA(State):
             if self.current_connection < self.path_length:
                 self.knight.move_target.position = self.path[self.current_connection].toNode.position
                 self.current_connection += 1
-            if self.knight.target is None and self.knight.velocity == 0:
-                self.knight.unstuck(self.knight)
             
         return None
 
 
     def entry_actions(self):
 
-        if self.knight.tower == []:
-            self.knight.tower = self.knight.get_enemy_tower(self.knight)
         nearest_node = self.knight.path_graph.get_nearest_node(self.knight.position)
 
         self.path = pathFindAStar(self.knight.path_graph, \
                                   nearest_node, \
-                                  self.knight.path_graph.nodes[10])
+                                  self.knight.path_graph.nodes[self.knight.base.target_node_index])
 
+        
         self.path_length = len(self.path)
 
         if (self.path_length > 0):
@@ -347,10 +307,7 @@ class KnightStateAttacking_TeamA(State):
     def do_actions(self):
 
         # colliding with target
-        # self.knight.get_targeted(self.knight)
-        # self.knight.dodge_attack(self.knight)
-        self.knight.targeted = None
-        if pygame.sprite.collide_rect(self.knight, self.knight.target) and self.knight.targeted == None:
+        if pygame.sprite.collide_rect(self.knight, self.knight.target):
             self.knight.velocity = Vector2(0, 0)
             self.knight.melee_attack(self.knight.target)
 
@@ -393,20 +350,16 @@ class KnightStateKO_TeamA(State):
         if self.knight.current_respawn_time <= 0:
             self.knight.current_respawn_time = self.knight.respawn_time
             self.knight.ko = False
-            # self.knight.path_graph = self.knight.world.paths[randint(0, len(self.knight.world.paths)-1)]
-            self.knight.path_graph =   self.knight.get_least_lane(self.knight)
-            self.knight.targeted = None
+            self.knight.path_graph = self.knight.world.paths[randint(0, len(self.knight.world.paths)-1)]
             return "seeking"
             
         return None
 
     def entry_actions(self):
-        # print("dead")
 
         self.knight.current_hp = self.knight.max_hp
         self.knight.position = Vector2(self.knight.base.spawn_position)
         self.knight.velocity = Vector2(0, 0)
         self.knight.target = None
-        self.knight.targeted = None
 
         return None
