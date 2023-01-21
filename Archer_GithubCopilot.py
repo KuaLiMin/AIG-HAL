@@ -65,9 +65,9 @@ class Archer_TeamA(Character):
         Character.process(self, time_passed)
         
         # level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
-        level_up_stats = ["speed", "projectile range", "ranged damage"]
+        level_up_stats = ["ranged damage", "ranged cooldown", "ranged damage", "speed"]
         if self.can_level_up():
-            choice = self.level%3
+            choice = self.level%4
             self.level_up(level_up_stats[choice])
             self.level += 1   
 
@@ -373,8 +373,6 @@ class ArcherStateDodgeProjectile_TeamA(State):
             if self.archer.target.name == "tower" and nearest_opponent.name == "base":
                 self.archer.target = nearest_opponent
                 return "dodgeProjectile"
-        
-        
 
         self.archer.set_velocity(self.archer.move_target.position)
 
@@ -458,7 +456,7 @@ class ArcherStateDodgeProjectile_TeamA(State):
         #Similar logic as code in Wizard Attacking state, dodge in circular formation
         self.move_list = []
         point_dist = 10
-        radius = self.archer.min_target_distance
+        radius = self.archer.min_target_distance - 3
         circumference = 2*math.pi*self.archer.min_target_distance
         point_count = int(circumference/point_dist)
         angle = 360/point_count
