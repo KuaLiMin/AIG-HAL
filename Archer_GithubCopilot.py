@@ -95,7 +95,7 @@ class Archer_TeamA(Character):
             self.graph.nodes[node1].addConnection(self.graph.nodes[node0], distance)
             line = f.readline()
 
-        # Create the orc paths, which are also Graphs
+        # Create the archer paths
         self.paths = []
         line = f.readline()
         while line != "":
@@ -136,7 +136,7 @@ class Archer_TeamA(Character):
         #Check if touches base or obstacle
         collision_list = pygame.sprite.spritecollide(self, self.world.obstacles, False, pygame.sprite.collide_mask)
         for entity in collision_list:
-            if entity.name == "obstacle" or entity.name == "base":
+            if entity.name == "obstacle":
                 return True
 
         return False
@@ -201,8 +201,9 @@ class ArcherStateSeeking_TeamA(State):
 
     def check_conditions(self):
 
-        #Heal is archer is under 90% HP
-        if self.archer.current_hp/self.archer.max_hp < 0.8:
+        #Heal if archer is under 90% HP and is not near the enemy towers
+        nearest_node = self.archer.path_graph.get_nearest_node(self.archer.position)
+        if not nearest_node.id in [7, 8, 4] and self.archer.current_hp/self.archer.max_hp < 0.9:
             self.archer.heal()
 
         # check if opponent is in range
@@ -295,7 +296,7 @@ class ArcherStateAttacking_TeamA(State):
         if not self.archer.resetting:
 
             #Change to dodge projectile if target shoots
-            if self.archer.target.name in ["archer", "tower", "base", "wizard"]:
+            if self.archer.target.name in ["archer", "tower", "wizard"]:
                 return "dodgeProjectile"
 
             #Move backwards if opponent is within this distance
@@ -365,13 +366,13 @@ class ArcherStateDodgeProjectile_TeamA(State):
     def do_actions(self):
 
         #Update nearest opponent
-        nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
-        if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance:
-            if (nearest_opponent.name == "orc" or nearest_opponent.name == "knight") and \
-                (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance - 50:
+        if not self.archer.target.name == "base":
+            nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
+            if (nearest_opponent.name in ["orc", "knight"]) and (self.archer.position - nearest_opponent.position).length() < self.archer.min_target_distance - 50:
                 self.archer.target = nearest_opponent
             if self.archer.target.name == "tower" and nearest_opponent.name == "base":
                 self.archer.target = nearest_opponent
+                return "dodgeProjectile"
 
         self.archer.set_velocity(self.archer.move_target.position)
 
@@ -387,7 +388,7 @@ class ArcherStateDodgeProjectile_TeamA(State):
         orc_count = 0
         for entity in self.archer.world.entities.values():
             if self.archer.team_id != entity.team_id and entity.name == "orc" and \
-            (entity.position - self.archer.position).length() <= self.archer.min_target_distance:
+            (entity.position - self.archer.position).length() <= self.archer.min_target_distance - 40:
                 orc_count += 1
 
         #Back to attacking state if target changes to knight or too many orcs
@@ -423,9 +424,9 @@ class ArcherStateDodgeProjectile_TeamA(State):
             self.point_index = len(self.move_list) - 1
 
         # Check if obstacle is too close to screen
-        if self.move_list[self.point_index][0] <= 15 or self.move_list[self.point_index][0] >= SCREEN_WIDTH - 15 or\
-            self.move_list[self.point_index][1] <= 15 or self.move_list[self.point_index][1] >= SCREEN_HEIGHT - 15 or\
-            self.move_count > 10: # Check if moved too many times
+        if self.move_list[self.point_index][0] <= 10 or self.move_list[self.point_index][0] >= SCREEN_WIDTH - 10 or\
+            self.move_list[self.point_index][1] <= 10 or self.move_list[self.point_index][1] >= SCREEN_HEIGHT - 10 or\
+            self.move_count > 7: # Check if moved too many times
 
             self.increment *= -1
             self.point_index += self.increment
@@ -435,13 +436,12 @@ class ArcherStateDodgeProjectile_TeamA(State):
         
         # Check if point is too close to obstacle
         for entity in self.archer.world.entities.values():
-            if entity.name == "obstacle" or entity.name == "base":
-                if entity.rect.collidepoint(self.move_list[self.point_index]):
-                    self.increment *= -1
-                    self.point_index += self.increment
-                    self.to_move = True
-                    self.wait = True
-                    self.move_count = 0
+            if entity.name == "obstacle" and entity.rect.collidepoint(self.move_list[self.point_index]):
+                self.increment *= -1
+                self.point_index += self.increment
+                self.to_move = True
+                self.wait = True
+                self.move_count = 0
 
         if self.to_move:
             self.archer.move_target.position = self.move_list[self.point_index]
