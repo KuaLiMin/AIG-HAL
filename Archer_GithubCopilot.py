@@ -20,7 +20,7 @@ class Archer_TeamA(Character):
         self.position = position
         self.move_target = GameEntity(world, "archer_move_target", None)
         self.target = None
-        self.level = 1
+        self.level = 0
 
         #Checks if archer is going to reset point
         self.resetting = False
@@ -63,8 +63,7 @@ class Archer_TeamA(Character):
     def process(self, time_passed):
         
         Character.process(self, time_passed)
-        
-        # level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
+
         level_up_stats = ["ranged damage", "ranged cooldown", "ranged damage", "speed"]
         if self.can_level_up():
             choice = self.level%4
@@ -270,7 +269,7 @@ class ArcherStateAttacking_TeamA(State):
             self.archer.target = nearest_opponent
 
         # opponent within range
-        if opponent_distance <= self.archer.min_target_distance:
+        if opponent_distance <= self.archer.min_target_distance - 5:
             if self.archer.current_ranged_cooldown <= 0:
                 self.archer.ranged_attack(self.archer.target.position) 
         else:
@@ -296,11 +295,11 @@ class ArcherStateAttacking_TeamA(State):
         if not self.archer.resetting:
 
             #Change to dodge projectile if target shoots
-            if self.archer.target.name in ["archer", "tower", "wizard"]:
+            if self.archer.target.name in ["archer", "tower", "wizard", "base"]:
                 return "dodgeProjectile"
 
             #Move backwards if opponent is within this distance
-            if opponent_distance <= self.archer.min_target_distance - 40:
+            if opponent_distance <= self.archer.min_target_distance - 30:
 
                 #If closest node is the opponent base node, switch target node
                 if self.current_connection < self.path_length:
@@ -362,27 +361,27 @@ class ArcherStateDodgeProjectile_TeamA(State):
         self.move_count = 0
         self.curr_projectile = None
         self.to_move = True
+        self.increment = 1
 
     def do_actions(self):
 
         #Update nearest opponent
-        if not self.archer.target.name == "base":
-            nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
-            if (nearest_opponent.name in ["orc", "knight"]) and (self.archer.position - nearest_opponent.position).length() < self.archer.min_target_distance - 50:
-                self.archer.target = nearest_opponent
-            if self.archer.target.name == "tower" and nearest_opponent.name == "base":
-                self.archer.target = nearest_opponent
-                return "dodgeProjectile"
-
-        self.archer.set_velocity(self.archer.move_target.position)
-
-    def check_conditions(self):
+        nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
+        if (nearest_opponent.name in ["orc", "knight"]) and (self.archer.position - nearest_opponent.position).length() < self.archer.min_target_distance - 30:
+            self.archer.target = nearest_opponent
+        if self.archer.target.name == "tower" and nearest_opponent.name == "base":
+            self.archer.target = nearest_opponent
+            return "dodgeProjectile"
 
         #Attack opponent if in range
         opponent_distance = (self.archer.position - self.archer.target.position).length()
         if opponent_distance <= self.archer.min_target_distance:
             if self.archer.current_ranged_cooldown <= 0:
                 self.archer.ranged_attack(self.archer.target.position)
+
+        self.archer.set_velocity(self.archer.move_target.position)
+
+    def check_conditions(self):
 
         #Counts number of orcs in range
         orc_count = 0
@@ -479,7 +478,6 @@ class ArcherStateDodgeProjectile_TeamA(State):
                 self.point_index = i
 
         self.archer.move_target.position = self.move_list[self.point_index]
-        self.increment = 1
         self.wait = True
         self.move_count = 0
 
