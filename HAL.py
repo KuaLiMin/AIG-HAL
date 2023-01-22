@@ -91,7 +91,7 @@ class World(object):
 
         f.close()
 
-
+ 
     def add_entity(self, entity):
 
         self.entities[self.entity_id] = entity

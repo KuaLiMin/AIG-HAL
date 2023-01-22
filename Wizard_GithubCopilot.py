@@ -1093,7 +1093,7 @@ class WizardStateAttacking_TeamA(State):
     def badArea(self, position):
         # confusion polygon where it is easy to get stuck
         path2ConfusionPolygon = [(313, 132),(290, 160),(321, 190),(352, 196),(352, 171)]
-        path1ConfusionPolygon = [(110, 294),(95, 463),(203, 389)]
+        path1ConfusionPolygon = [(90, 294),(95, 463),(190, 389)]
 
         nearTowerOrBase = False
         offScreen = False

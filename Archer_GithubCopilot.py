@@ -20,8 +20,7 @@ class Archer_TeamA(Character):
         self.position = position
         self.move_target = GameEntity(world, "archer_move_target", None)
         self.target = None
-        self.lane = None
-        self.level = 1
+        self.level = 0
 
         #Checks if archer is going to reset point
         self.resetting = False
@@ -31,7 +30,8 @@ class Archer_TeamA(Character):
         self.generate_pathfinding_graphs("archer_pathfinding.txt")
         self.reset_points = [Vector2(310, 80), Vector2(484, 80), Vector2(705,71), Vector2(870,80), #Top Lane
                             Vector2(925,390), Vector2(876,508), Vector2(940, 190), Vector2(943,294),#Top Lane
-                            Vector2(90,390), Vector2(80,520), Vector2(180,670), Vector2(447,721), Vector2(630, 710), Vector2(755, 680)] #Bot Lane
+                            Vector2(90,390), Vector2(80,520), Vector2(180,670), Vector2(447,721), Vector2(630, 710), Vector2(755, 680), #Bot Lane
+                            Vector2(168,227), Vector2(308,184)] #Others
 
         self.maxSpeed = 50
         self.min_target_distance = 100
@@ -63,11 +63,10 @@ class Archer_TeamA(Character):
     def process(self, time_passed):
         
         Character.process(self, time_passed)
-        
-        # level_up_stats = ["hp", "speed", "ranged damage", "ranged cooldown", "projectile range"]
-        level_up_stats = ["speed", "projectile range", "ranged damage"]
+
+        level_up_stats = ["ranged damage", "ranged cooldown", "ranged damage", "speed"]
         if self.can_level_up():
-            choice = self.level%3
+            choice = self.level%4
             self.level_up(level_up_stats[choice])
             self.level += 1   
 
@@ -95,7 +94,7 @@ class Archer_TeamA(Character):
             self.graph.nodes[node1].addConnection(self.graph.nodes[node0], distance)
             line = f.readline()
 
-        # Create the orc paths, which are also Graphs
+        # Create the archer paths
         self.paths = []
         line = f.readline()
         while line != "":
@@ -136,7 +135,7 @@ class Archer_TeamA(Character):
         #Check if touches base or obstacle
         collision_list = pygame.sprite.spritecollide(self, self.world.obstacles, False, pygame.sprite.collide_mask)
         for entity in collision_list:
-            if entity.name == "obstacle" or entity.name == "base":
+            if entity.name == "obstacle":
                 return True
 
         return False
@@ -181,6 +180,7 @@ class Archer_TeamA(Character):
         return False
 
 
+#Brings archer toward the base if no enemies are found
 class ArcherStateSeeking_TeamA(State):
 
     def __init__(self, archer):
@@ -190,7 +190,6 @@ class ArcherStateSeeking_TeamA(State):
 
         #Goes to top lane
         self.archer.path_graph = self.archer.paths[0]
-        self.archer.lane = "top"
 
 
     def do_actions(self):
@@ -201,9 +200,12 @@ class ArcherStateSeeking_TeamA(State):
 
     def check_conditions(self):
 
-        #Heal is archer is under 90% HP
-        if self.archer.current_hp/self.archer.max_hp < 0.8:
+        #Heal if archer is under 90% HP and is not near the enemy towers
+        nearest_node = self.archer.path_graph.get_nearest_node(self.archer.position)
+        if (self.archer.position - self.archer.path_graph.nodes[self.archer.base.target_node_index].position).length() > 300\
+            and self.archer.current_hp/self.archer.max_hp < 0.9:
             self.archer.heal()
+
 
         # check if opponent is in range
         nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
@@ -213,6 +215,7 @@ class ArcherStateSeeking_TeamA(State):
                     self.archer.target = nearest_opponent
                     return "attacking"
 
+
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
             if (self.archer.position - self.archer.move_target.position).length() < 8:
@@ -221,14 +224,16 @@ class ArcherStateSeeking_TeamA(State):
                 if self.current_connection < self.path_length:
                     self.archer.move_target.position = self.path[self.current_connection].toNode.position
                     self.current_connection += 1
-        
+
+
         #Change back to normal is archer is done resetting
         else:
             if (self.archer.position - self.archer.move_target.position).length() < 8:
                 self.archer.resetting = False
 
+
         #Reset archer position if obstacle is reached
-        if self.archer.reached_boundary():
+        if self.archer.reached_boundary() and self.archer.position != Vector2(self.archer.base.spawn_position):
             self.archer.resetting = True
             self.archer.move_target.position = self.archer.get_nearest_reset()
                 
@@ -251,6 +256,8 @@ class ArcherStateSeeking_TeamA(State):
             self.archer.move_target.position = self.archer.path_graph.nodes[self.archer.base.target_node_index].position
 
 
+# Main kiting logic for melee enemies, and brances out to dodge against ranged enemies
+# Also attacks enemies when in range
 class ArcherStateAttacking_TeamA(State):
 
     def __init__(self, archer):
@@ -262,18 +269,20 @@ class ArcherStateAttacking_TeamA(State):
 
     def do_actions(self):
 
-        opponent_distance = (self.archer.position - self.archer.target.position).length()
         #Update nearest opponent
+        opponent_distance = (self.archer.position - self.archer.target.position).length()
         nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
         if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance:
             self.archer.target = nearest_opponent
 
+
         # opponent within range
-        if opponent_distance <= self.archer.min_target_distance:
+        if opponent_distance <= self.archer.min_target_distance - 5:
             if self.archer.current_ranged_cooldown <= 0:
                 self.archer.ranged_attack(self.archer.target.position) 
         else:
             self.archer.move_target.position = self.archer.target.position
+
 
         self.archer.set_velocity(self.archer.move_target.position)
 
@@ -284,27 +293,29 @@ class ArcherStateAttacking_TeamA(State):
         if self.archer.current_hp/self.archer.max_hp < 0.1:
             self.archer.heal()
 
+
         # target is gone
         if self.archer.world.get(self.archer.target.id) is None or self.archer.target.ko:
             self.archer.target = None
             return "seeking"
 
-        opponent_distance = (self.archer.position - self.archer.target.position).length()
 
         #Resetting position takes priority so that archer will not get stuck
         if not self.archer.resetting:
 
-            #Change to dodge projectile if target shoots
-            if self.archer.target.name in ["archer", "tower", "base", "wizard"]:
+            #Change to dodge projectile if target shoots projectiles
+            if self.archer.target.name in ["archer", "tower", "wizard", "base"]:
                 return "dodgeProjectile"
 
+
             #Move backwards if opponent is within this distance
-            if opponent_distance <= self.archer.min_target_distance - 40:
+            if (self.archer.position - self.archer.target.position).length() <= self.archer.min_target_distance - 30:
 
                 #If closest node is the opponent base node, switch target node
                 if self.current_connection < self.path_length:
                     if self.path[self.current_connection].fromNode.position == self.archer.path_graph.nodes[self.archer.base.target_node_index].position:
                         self.current_connection += 1
+
 
                 #Set archer position to the path/roam around the base
                     self.archer.move_target.position = self.path[self.current_connection].toNode.position
@@ -318,12 +329,14 @@ class ArcherStateAttacking_TeamA(State):
                     self.archer.move_target.position = self.path[self.current_connection].toNode.position
                     self.current_connection += 1
 
+
         #Reached reset point                   
         else:
             if (self.archer.position - self.archer.move_target.position).length() < 8:
                 self.archer.resetting = False
 
-        #Reached a boundary (Edge of screen, or obstacle)
+
+        #Reached an obstacle
         if self.archer.reached_boundary():
             self.archer.resetting = True
             self.archer.move_target.position = self.archer.get_nearest_reset()
@@ -351,6 +364,8 @@ class ArcherStateAttacking_TeamA(State):
         return None
 
 
+# State that dodges projectiles against ranged enemies
+# Also attacks when enemies are in range
 class ArcherStateDodgeProjectile_TeamA(State):
 
     def __init__(self, archer):
@@ -361,21 +376,22 @@ class ArcherStateDodgeProjectile_TeamA(State):
         self.move_count = 0
         self.curr_projectile = None
         self.to_move = True
+        self.increment = 1
 
     def do_actions(self):
 
         #Update nearest opponent
         nearest_opponent = self.archer.world.get_nearest_opponent(self.archer)
-        if (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance:
-            if (nearest_opponent.name == "orc" or nearest_opponent.name == "knight") and \
-                (self.archer.position - nearest_opponent.position).length() <= self.archer.min_target_distance - 50:
-                self.archer.target = nearest_opponent
-            if self.archer.target.name == "tower" and nearest_opponent.name == "base":
-                self.archer.target = nearest_opponent
 
-        self.archer.set_velocity(self.archer.move_target.position)
+        #Switch target to melee characters once they come too close
+        if (nearest_opponent.name in ["orc", "knight"]) and (self.archer.position - nearest_opponent.position).length() < self.archer.min_target_distance - 30:
+            self.archer.target = nearest_opponent
 
-    def check_conditions(self):
+        #Focus on base 
+        if self.archer.target.name == "tower" and nearest_opponent.name == "base":
+            self.archer.target = nearest_opponent
+            return "dodgeProjectile"
+
 
         #Attack opponent if in range
         opponent_distance = (self.archer.position - self.archer.target.position).length()
@@ -383,49 +399,62 @@ class ArcherStateDodgeProjectile_TeamA(State):
             if self.archer.current_ranged_cooldown <= 0:
                 self.archer.ranged_attack(self.archer.target.position)
 
+
+        self.archer.set_velocity(self.archer.move_target.position)
+
+    def check_conditions(self):
+
         #Counts number of orcs in range
         orc_count = 0
         for entity in self.archer.world.entities.values():
             if self.archer.team_id != entity.team_id and entity.name == "orc" and \
-            (entity.position - self.archer.position).length() <= self.archer.min_target_distance:
+            (entity.position - self.archer.position).length() <= self.archer.min_target_distance - 40:
                 orc_count += 1
+
 
         #Back to attacking state if target changes to knight or too many orcs
         if (self.archer.target.team_id != self.archer.team_id and self.archer.target.name == "knight") or orc_count >= 2:
             return "attacking"
+
 
         # target is gone
         if self.archer.world.get(self.archer.target.id) is None or self.archer.target.ko:
             self.archer.target = None
             return "seeking"
 
+
+        #Back to seeking if target is too far from archer
         if (self.archer.position - self.archer.target.position).length() > self.archer.min_target_distance + 20:
             return "seeking"
 
-        #Dodging mechanic
+        #Stops and waits for projectile to be shot
         if not self.wait:
             if (self.archer.position - self.archer.move_target.position).length() < 8:
                 self.point_index += self.increment
                 self.to_move = True
                 self.move_count += 1
 
+        #When projectile is detected, start to move away
         else:
             self.archer.velocity = Vector2(0, 0)
             for entity in self.archer.world.entities.values():
                 if entity.team_id != self.archer.team_id and entity.name == "projectile":
                     if (self.archer.position - entity.position).length() <= self.archer.min_target_distance and entity != self.curr_projectile:
                         self.wait = False
-                        self.curr_projectile = entity      
+                        self.curr_projectile = entity
 
+
+        #Back to the start if end of list is reached (since it is a circular formation)
         if self.point_index >= len(self.move_list) - 1:
                 self.point_index = 0
         if self.point_index <= 0:
             self.point_index = len(self.move_list) - 1
 
-        # Check if obstacle is too close to screen
-        if self.move_list[self.point_index][0] <= 15 or self.move_list[self.point_index][0] >= SCREEN_WIDTH - 15 or\
-            self.move_list[self.point_index][1] <= 15 or self.move_list[self.point_index][1] >= SCREEN_HEIGHT - 15 or\
-            self.move_count > 10: # Check if moved too many times
+
+        # Check if move target is too close to screen, if yes then reverse direction
+        if self.move_list[self.point_index][0] <= 10 or self.move_list[self.point_index][0] >= SCREEN_WIDTH - 10 or\
+            self.move_list[self.point_index][1] <= 10 or self.move_list[self.point_index][1] >= SCREEN_HEIGHT - 10 or\
+            self.move_count > 8:    # Check if moved too many times, if yes then reverse direction
 
             self.increment *= -1
             self.point_index += self.increment
@@ -433,21 +462,24 @@ class ArcherStateDodgeProjectile_TeamA(State):
             self.wait = True
             self.move_count = 0
         
-        # Check if point is too close to obstacle
-        for entity in self.archer.world.entities.values():
-            if entity.name == "obstacle" or entity.name == "base":
-                if entity.rect.collidepoint(self.move_list[self.point_index]):
-                    self.increment *= -1
-                    self.point_index += self.increment
-                    self.to_move = True
-                    self.wait = True
-                    self.move_count = 0
 
+        # Check if move target is too close to obstacle, if yes then reverse direction
+        for entity in self.archer.world.entities.values():
+            if entity.name == "obstacle" and entity.rect.collidepoint(self.move_list[self.point_index]):
+                self.increment *= -1
+                self.point_index += self.increment
+                self.to_move = True
+                self.wait = True
+                self.move_count = 0
+
+
+        #If target is supposed to move, change its move target
         if self.to_move:
             self.archer.move_target.position = self.move_list[self.point_index]
             self.to_move = False
 
-        #Check if archer has reached a boundary
+
+        #Check if archer has reached an obstacle
         if self.archer.reached_boundary():
             self.archer.move_target.position = self.archer.get_nearest_reset()
 
@@ -456,7 +488,7 @@ class ArcherStateDodgeProjectile_TeamA(State):
         #Similar logic as code in Wizard Attacking state, dodge in circular formation
         self.move_list = []
         point_dist = 10
-        radius = self.archer.min_target_distance
+        radius = self.archer.min_target_distance - 3
         circumference = 2*math.pi*self.archer.min_target_distance
         point_count = int(circumference/point_dist)
         angle = 360/point_count
@@ -478,14 +510,15 @@ class ArcherStateDodgeProjectile_TeamA(State):
                 closest = (self.archer.position - self.move_list[i]).length()
                 self.point_index = i
 
+        #Initialise values
         self.archer.move_target.position = self.move_list[self.point_index]
-        self.increment = 1
-        self.wait = False
+        self.wait = True
         self.move_count = 0
 
         return None
 
 
+#When the archer dies
 class ArcherStateKO_TeamA(State):
 
     def __init__(self, archer):
