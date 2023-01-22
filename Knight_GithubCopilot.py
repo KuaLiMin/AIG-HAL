@@ -19,6 +19,8 @@ class Knight_TeamA(Character):
         self.can_heal = False
         self.targeted = False
 
+        self.follow = None
+
         self.graph = Graph(self)
         self.generate_pathfinding_graphs("knight_pathfinding_graph.txt")
         self.tower = []
@@ -43,10 +45,10 @@ class Knight_TeamA(Character):
     def render(self, surface):
         #uncomment
 
-        # if self.text != "":
-        #     font = pygame.font.SysFont("arial", 12, True)
-        #     follo = font.render(self.text, True, (255, 0, 0))
-        #     surface.blit(follo, ((SCREEN_WIDTH/2 - follo.get_width()/2), (30)))
+        if self.text != "":
+            font = pygame.font.SysFont("arial", 12, True)
+            follo = font.render(self.text, True, (255, 0, 0))
+            surface.blit(follo, ((SCREEN_WIDTH/2 - follo.get_width()/2), (30)))
 
             #end
         # for i in range(len(self.world.graph.nodes)):
@@ -59,13 +61,13 @@ class Knight_TeamA(Character):
         #     surface.blit(heal, (self.position[0], self.position[1] + 30))
 
         #uncomment
-        # for i in range(0, 33):
-        #     if i == 12 or i == 27 or i ==28 or i ==21 or i == 22:
-        #         continue
-        #     pygame.draw.circle(surface, (0, 0, 0), (self.graph.nodes[i].position[0], self.graph.nodes[i].position[1]), int(5))
-        #     font = pygame.font.SysFont("arial", 12, True)
-        #     node_pos = font.render((str(self.graph.nodes[i].position)), True, (255, 255, 255))
-        #     surface.blit(node_pos, self.graph.nodes[i].position)
+        for i in range(0, 33):
+            if i == 12 or i == 27 or i ==28 or i ==21 or i == 22:
+                continue
+            pygame.draw.circle(surface, (0, 0, 0), (self.graph.nodes[i].position[0], self.graph.nodes[i].position[1]), int(5))
+            font = pygame.font.SysFont("arial", 12, True)
+            node_pos = font.render((str(self.graph.nodes[i].position)), True, (255, 255, 255))
+            surface.blit(node_pos, self.graph.nodes[i].position)
         #end
 
         # pygame.draw.circle(surface, (255,0,0), (800, 685), int(5))
@@ -76,15 +78,15 @@ class Knight_TeamA(Character):
         # pygame.draw.circle(surface, (255,0,0), (840, 500), int(5))
 
         #uncomment
-        # pygame.draw.circle(surface, (0, 0, 0), (int(self.position[0]), int(self.position[1])), int(self.min_target_distance), int(2))
+        pygame.draw.circle(surface, (0, 0, 0), (int(self.position[0]), int(self.position[1])), int(self.min_target_distance), int(2))
 
-        # font = pygame.font.SysFont("arial", 12, True)
-        # state_name = font.render(self.brain.active_state.name, True, (255, 255, 255))
-        # surface.blit(state_name, self.position)
+        font = pygame.font.SysFont("arial", 12, True)
+        state_name = font.render(self.brain.active_state.name, True, (255, 255, 255))
+        surface.blit(state_name, self.position)
 
-        # if self.targeted:
-        #     pygame.draw.line(surface, (0, 255, 0), self.position, self.targeted.position)
-        #     pygame.draw.circle(surface, (255, 0, 0), (int(self.position[0]), int(self.position[1])), int(40), int(2))
+        if self.targeted:
+            pygame.draw.line(surface, (0, 255, 0), self.position, self.targeted.position)
+            pygame.draw.circle(surface, (255, 0, 0), (int(self.position[0]), int(self.position[1])), int(40), int(2))
         #end
         Character.render(self, surface)
 
@@ -95,7 +97,14 @@ class Knight_TeamA(Character):
         level_up_stats = ["hp", "speed", "melee damage", "melee cooldown"]
         if self.can_level_up():
             print(self.xp)
-            self.level_up(level_up_stats[0])
+            level = self.xp/100
+            if level < 4:            
+                self.level_up(level_up_stats[0])
+            else:
+                if randint(0, 100) < 50:
+                    self.level_up(level_up_stats[2])
+                else: 
+                    self.level_up(level_up_stats[3])
 
     def generate_pathfinding_graphs(self, filename):
         f = open(filename, "r")
@@ -236,21 +245,20 @@ class Knight_TeamA(Character):
 
     def get_lane(self, char):
         lane = None
-        hero_to_follow = None
 
         enemy_tower = char.get_enemy_tower(char)
 
         # if len(enemy_tower) == 2 or len(enemy_tower) == 0:
-        if len(enemy_tower) == 2 or len(enemy_tower) == 0:
-            hero_to_follow = "wizard"
+        if len(enemy_tower) == 2:
+            char.follow = "wizard"
         else:
-            hero_to_follow = "archer"
+            char.follow = "archer"
 
-        if hero_to_follow != None:
+        if char.follow != None:
             for entity in self.world.entities.values():
                 if entity.team_id == 2 or entity.team_id != char.team_id:
                     continue
-                if entity.name == hero_to_follow:
+                if entity.name == char.follow:
                     for i in range(len(self.world.paths)):
                         if self.world.paths[i] == entity.path_graph:
                             lane = char.paths[i]
@@ -258,19 +266,43 @@ class Knight_TeamA(Character):
                 if lane == None:
                     lane = char.get_least_lane(char)
         
-        if hero_to_follow == None or lane == None:
+        if char.follow == None or lane == None:
             lane = char.get_least_lane(char)
         
-        self.text = "Follow " + hero_to_follow 
+        self.text = "Follow " + str(char.follow)
         return lane
 
-    def get_pos(self, entity_name, team):
+    def get_entity(self, entity_name, team): 
         for entity in self.world.entities.values():
-            if entity.team_id == 2 or entity.team_id != team:
+            if entity.team_id == 2 or entity.team_id == team:
                 continue
             if entity.name == entity_name:
-                return entity.position
+                return entity
         return None
+
+    def reset(self, hero):
+        if hero == None:
+            self.velocity = self.path_graph.get_nearest_node(self.position).position - self.position
+            if self.velocity.length() > 0:
+                self.velocity.normalize_ip();
+                self.velocity *= self.maxSpeed
+            
+            self.move_target.position = self.path_graph.get_nearest_node(self.position).position
+            
+        else:
+            self.velocity = hero.position - self.position
+            if self.velocity.length() > 0:
+                self.velocity.normalize_ip()
+                self.velocity *= self.maxSpeed
+            self.move_target.position = hero.position
+
+    def colliding(self, char):
+        collide_list = pygame.sprite.spritecollide(self, self.world.obstacles, False, pygame.sprite.collide_mask)
+        for entity in collide_list:
+            if char.target != entity:
+                if entity.name == 'obstacle' or entity.name == 'tower' or entity.name == 'base':
+                    return True
+        return False
 
     def enemy_around(self, char):
         enemy_list = []
@@ -302,10 +334,17 @@ class KnightStateSeeking_TeamA(State):
 
     def check_conditions(self):
 
-        if self.knight.can_heal:
+        # if self.knight.can_heal:
+        #     self.knight.heal()
+        #     self.knight.can_heal = False
+        
+        if self.knight.current_hp/self.knight.max_hp < 0.8:
             self.knight.heal()
             self.knight.can_heal = False
 
+
+        if self.knight.colliding(self.knight):
+            self.knight.reset(None)
         # check if opponent is in range
         nearest_opponent = self.knight.world.get_nearest_opponent(self.knight)
         if nearest_opponent is not None:
@@ -345,15 +384,29 @@ class KnightStateSeeking_TeamA(State):
             self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
 
 
-class KnightWizardState_TeamA(State):
+class KnightfollowState_TeamA(State):
     def __init__(self, knight):
-        State.__init__(self, "follow wizard")
+        State.__init__(self, "follow hero")
         self.knight = knight
-        self.wizard = knight.get_wizard(knight)
+        self.hero = knight.get_entity(self.knight.follow, knight)
 
     def do_actions(self):
         # if wizard is within wizard range, then attract enemies
         # stay same lane
+        if self.hero.ko == False:
+            if self.knight.follow == "wizard":
+                ## if wizard is within wizard range, then attract enemies
+            # stay same lane
+                self.knight.hero = "wizard"
+
+            elif self.knight.follow == "archer":
+                self.knight.hero = "archer"
+            
+            else:
+                return "seeking"
+        else:
+            return "seeking"
+
         return None
 
     def check_conditions(self):
