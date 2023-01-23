@@ -132,14 +132,6 @@ class Wizard_TeamA(Character):
                     pygame.draw.circle(surface, (255, 0, 255), (int(self.move_target.position[0]), int(self.move_target.position[1])), 10)
  
 
-            # draw world paths
-            # for connection in self.world.paths[1].connections:
-            #     pygame.draw.line(surface, (0, 0, 0), (int(connection.fromNode.position[0]), int(connection.fromNode.position[1])), (int(connection.toNode.position[0]), int(connection.toNode.position[1])), 5)
-
-            # # blit circle at target
-            # if self.target is not None:
-            #     pygame.draw.circle(surface, (255, 100, 0), (int(self.target.position[0]), int(self.target.position[1])), 40, 20)
-            #     pygame.draw.circle(surface, (255, 0, 100), (int(self.target.position[0]), int(self.target.position[1])), 50, 10)
 
 
             # if leaveTowersAlone
@@ -781,7 +773,7 @@ class WizardStateReturning_TeamA(State):
             self.wizard.velocity *= self.wizard.maxSpeed
 
     def check_conditions(self):
-        if (self.wizard.near_base(self.wizard,3.8) or self.wizard.leaveTowersAlone()) or (self.wizard.near_base(self.wizard,3.75)):
+        if (self.wizard.near_base(self.wizard,3.75) or self.wizard.leaveTowersAlone()):
             nearest_opponent = self.wizard.world.get_nearest_opponent(self.wizard)
             if nearest_opponent is not None:
                 opponent_distance = (self.wizard.position - nearest_opponent.position).length()
@@ -1012,61 +1004,7 @@ class WizardStateAttacking_TeamA(State):
                     closest_dot_index = len(self.dot_list)-1
  
 
-        # # Create a loop to calculate the coordinates of each dot
-        # for i in range(num_dots):
-        #     # Add the dot coordinates to the list
-        #     # if dot is not off screen
-
-        #     x = target.position[0] + radius * math.cos(math.radians(i * angle))
-        #     y = target.position[1] + radius * math.sin(math.radians(i * angle))
-
-        #     # if on screen and first off screen has passed
-        #     if isPastFirstOffscreen and (x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
-        #         first_dot_index = i
-        #         break
-            
-        #     # if off screen
-        #     if not(x > 3 and x < SCREEN_WIDTH -3 and y > 3 and y < SCREEN_HEIGHT -3):
-        #         isPastFirstOffscreen = True
-        
-        # # [[(316, 134),(293, 163),(324, 191),(352, 196),(352, 171)]]
-
-        # # Create a loop to calculate the coordinates of each dot
-        # for i in range(num_dots):
-        #     # Add the dot coordinates to the list
-
-        #     x = target.position[0] + radius * math.cos(math.radians(i * angle))
-        #     y = target.position[1] + radius * math.sin(math.radians(i * angle))
-        #     onScreenList.append((x,y))
-
-           
-        # # change self.dot list to start at first dot index
-        # onScreenList = onScreenList[first_dot_index:] + onScreenList[:first_dot_index]
-
-
-                
-
-        # if last dot is closer than first dot, reverse the list
-        # if len(self.dot_list) == 0:
-        #     print(self.wizard.position)
-        # if (self.dot_list[0] - self.wizard.position).length() > (self.dot_list[-1] - self.wizard.position).length():
-        #     # reverse list
-        #     self.dot_list = self.dot_list[::-1]
-
-            
-
-        
-     
-        # find closest dot index in dot index list
-        # closest_dot_index = 0
-        # closest_distance = 1000000
-        # for i in range(len(self.dot_list)):
-        #     distance = (self.wizard.position - self.dot_list[i]).length()
-        #     if distance < closest_distance:
-        #         closest_distance = distance
-        #         closest_dot_index = i
-
-        
+    
     
         self.collisionCount = 0
         self.dotCount = len(self.dot_list)
