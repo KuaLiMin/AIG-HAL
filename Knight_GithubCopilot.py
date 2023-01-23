@@ -6,6 +6,7 @@ from Graph import *
 from Character import *
 from State import *
 
+KNIGHT_DEBUG = False
 class Knight_TeamA(Character):
 
     def __init__(self, world, image, base, position):
@@ -47,52 +48,52 @@ class Knight_TeamA(Character):
 
     def render(self, surface):
         #uncomment
+        if KNIGHT_DEBUG:
+            if self.text != "":
+                font = pygame.font.SysFont("arial", 12, True)
+                follo = font.render(self.text, True, (255, 0, 0))
+                surface.blit(follo, ((SCREEN_WIDTH/2 - follo.get_width()/2), (30)))
 
-        if self.text != "":
-            font = pygame.font.SysFont("arial", 12, True)
-            follo = font.render(self.text, True, (255, 0, 0))
-            surface.blit(follo, ((SCREEN_WIDTH/2 - follo.get_width()/2), (30)))
+                #end
+            # for i in range(len(self.world.graph.nodes)):
+            #     pygame.draw.circle(surface, (0, 0, 0), (self.world.graph.nodes[i].position[0], self.world.graph.nodes[i].position[1]), int(5))
+            #     font = pygame.font.SysFont("arial", 12, True)
+            #     node_pos = font.render((str(self.world.graph.nodes[i].position)), True, (255, 255, 255))
+            #     surface.blit(node_pos, self.world.graph.nodes[i].position)
 
+            #     heal = font.render(str(self.can_heal), True, (255, 255, 255))
+            #     surface.blit(heal, (self.position[0], self.position[1] + 30))
+
+            #uncomment
+            for i in range(0, 33):
+                if i == 12 or i == 27 or i ==28 or i ==21 or i == 22:
+                    continue
+                pygame.draw.circle(surface, (0, 0, 0), (self.graph.nodes[i].position[0], self.graph.nodes[i].position[1]), int(5))
+                font = pygame.font.SysFont("arial", 12, True)
+                node_pos = font.render((str(self.graph.nodes[i].position)), True, (255, 255, 255))
+                surface.blit(node_pos, self.graph.nodes[i].position)
             #end
-        # for i in range(len(self.world.graph.nodes)):
-        #     pygame.draw.circle(surface, (0, 0, 0), (self.world.graph.nodes[i].position[0], self.world.graph.nodes[i].position[1]), int(5))
-        #     font = pygame.font.SysFont("arial", 12, True)
-        #     node_pos = font.render((str(self.world.graph.nodes[i].position)), True, (255, 255, 255))
-        #     surface.blit(node_pos, self.world.graph.nodes[i].position)
 
-        #     heal = font.render(str(self.can_heal), True, (255, 255, 255))
-        #     surface.blit(heal, (self.position[0], self.position[1] + 30))
+            # pygame.draw.circle(surface, (255,0,0), (800, 685), int(5))
+            # pygame.draw.circle(surface, (255,0,0), (940, 550), int(5))
+            # pygame.draw.circle(surface, (255,0,0), (650, 555), int(5))
+            pygame.draw.circle(surface, (255,0,0), (660, 700), int(5))
+            pygame.draw.circle(surface, (255,0,0), (910, 410), int(5))
+            pygame.draw.line(surface, (255, 0, 0), (660,410), (1024, 410))
+            pygame.draw.line(surface, (255, 0, 0), (660, 410), (660, 768))
+            # pygame.draw.circle(surface, (255,0,0), (int(self.position[0]), int(self.position[1])), int(10), int(2))
 
-        #uncomment
-        for i in range(0, 33):
-            if i == 12 or i == 27 or i ==28 or i ==21 or i == 22:
-                continue
-            pygame.draw.circle(surface, (0, 0, 0), (self.graph.nodes[i].position[0], self.graph.nodes[i].position[1]), int(5))
-            font = pygame.font.SysFont("arial", 12, True)
-            node_pos = font.render((str(self.graph.nodes[i].position)), True, (255, 255, 255))
-            surface.blit(node_pos, self.graph.nodes[i].position)
-        #end
+            #uncomment
+            pygame.draw.circle(surface, (0, 0, 0), (int(self.position[0]), int(self.position[1])), int(self.min_target_distance), int(2))
 
-        # pygame.draw.circle(surface, (255,0,0), (800, 685), int(5))
-        # pygame.draw.circle(surface, (255,0,0), (940, 550), int(5))
-        # pygame.draw.circle(surface, (255,0,0), (650, 555), int(5))
-        pygame.draw.circle(surface, (255,0,0), (660, 700), int(5))
-        pygame.draw.circle(surface, (255,0,0), (910, 410), int(5))
-        pygame.draw.line(surface, (255, 0, 0), (660,410), (1024, 410))
-        pygame.draw.line(surface, (255, 0, 0), (660, 410), (660, 768))
-        # pygame.draw.circle(surface, (255,0,0), (int(self.position[0]), int(self.position[1])), int(10), int(2))
+            font = pygame.font.SysFont("arial", 15, True)
+            state_name = font.render((self.brain.active_state.name + self.follow), True, (255, 255, 255))
+            surface.blit(state_name, ((SCREEN_WIDTH/2 - state_name.get_width()/2), (30)))
 
-        #uncomment
-        pygame.draw.circle(surface, (0, 0, 0), (int(self.position[0]), int(self.position[1])), int(self.min_target_distance), int(2))
-
-        font = pygame.font.SysFont("arial", 15, True)
-        state_name = font.render((self.brain.active_state.name + self.follow), True, (255, 255, 255))
-        surface.blit(state_name, ((SCREEN_WIDTH/2 - state_name.get_width()/2), (30)))
-
-        if self.targeted:
-            pygame.draw.line(surface, (0, 255, 0), self.position, self.targeted.position)
-            pygame.draw.circle(surface, (255, 0, 0), (int(self.position[0]), int(self.position[1])), int(40), int(2))
-        #end
+            if self.targeted:
+                pygame.draw.line(surface, (0, 255, 0), self.position, self.targeted.position)
+                pygame.draw.circle(surface, (255, 0, 0), (int(self.position[0]), int(self.position[1])), int(40), int(2))
+            #end
         Character.render(self, surface)
 
     def process(self, time_passed):
@@ -318,15 +319,15 @@ class Knight_TeamA(Character):
             self.move_target.position = self.path_graph.get_nearest_node(self.position).position
             
         else:
-            self.velocity = hero.position - self.position
-            if self.velocity > hero.projectile_range:
+            self.velocity = (hero.position - self.position).length()
+            if self.velocity > hero.min_target_distance/2:
                 self.velocity = self.path_graph.get_nearest_node(self.position).position - self.position
             else:
                 self.move_target.position = hero.position
 
             if self.velocity.length() > 0:
-                    self.velocity.normalize_ip()
-                    self.velocity *= self.maxSpeed
+                self.velocity.normalize_ip()
+                self.velocity *= self.maxSpeed
 
     def colliding(self, char):
         collide_list = pygame.sprite.spritecollide(self, self.world.obstacles, False, pygame.sprite.collide_mask)
@@ -427,7 +428,12 @@ class Knight_TeamA(Character):
         print("False")
         return False
                 # def targeted(self, char):
-
+    def get_path_index(self, entity, path):
+        if entity.name == "archer" or entity.name == "knight":
+            return entity.paths.index(path)
+        else:
+            return entity.world.paths.index(path)
+            # self.knight.hero.world.paths.index(self.knight.hero.path_graph)
 
 class KnightStateSeeking_TeamA(State):
 
@@ -486,10 +492,12 @@ class KnightStateSeeking_TeamA(State):
                 else:
                     #if hero to follow is alive
                     if not self.knight.hero.ko:
+                        if self.knight.hero.name != self.knight.follow:
+                            self.knight.hero = self.knight.get_entity(self.knight.follow, (1-self.knight.team_id))
                         print(self.knight.hero.name, " to follow and alive")
 
                         #hero is alive but not on the same path then move to base respawn and get hero lane
-                        if self.knight.hero.world.paths.index(self.knight.hero.path_graph) != self.knight.paths.index(self.knight.path_graph):
+                        if self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph) != self.knight.get_path_index(self.knight, self.knight.path_graph):
                             print(self.knight.hero.name, " not in same lane")
                             self.knight.move_target.position = self.knight.base.spawn_position
                             if (self.knight.position-self.knight.base.spawn_position).length() < 20:
@@ -509,11 +517,11 @@ class KnightStateSeeking_TeamA(State):
 
                                 else:
                                     self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
-                            print(self.knight.hero.name, " at lane" , self.knight.hero.world.paths.index(self.knight.hero.path_graph))
+                            print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
                             print("knight at lane", self.knight.paths.index(self.knight.path_graph))
                         #hero is alive and on the same path
                         else:
-                            print(self.knight.hero.name, " at lane" , self.knight.hero.world.paths.index(self.knight.hero.path_graph))
+                            print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
                             print("knight at lane", self.knight.paths.index(self.knight.path_graph))
                             #check if within 160(hero target distance) of hero, otherwise reposition
                             if(self.knight.position - self.knight.hero.position).length() >= self.knight.hero.min_target_distance:
