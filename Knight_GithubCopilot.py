@@ -33,12 +33,10 @@ class Knight_TeamA(Character):
 
         seeking_state = KnightStateSeeking_TeamA(self)
         attacking_state = KnightStateAttacking_TeamA(self)
-        # follow_state = KnightStateFollow_TeamA(self)
         ko_state = KnightStateKO_TeamA(self)
 
         self.brain.add_state(seeking_state)
         self.brain.add_state(attacking_state)
-        # self.brain.add_state(follow_state)
         self.brain.add_state(ko_state)
 
         self.brain.set_state("seeking")
@@ -480,10 +478,6 @@ class KnightStateSeeking_TeamA(State):
 
 
     def check_conditions(self):
-
-        # if self.knight.can_heal:
-        #     self.knight.heal()
-        #     self.knight.can_heal = False
         
         if self.knight.current_hp/self.knight.max_hp < 0.8:
             self.knight.heal()
@@ -596,57 +590,6 @@ class KnightStateSeeking_TeamA(State):
 
         else:
             self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
-# class KnightStateFollow_TeamA(State):
-#     def __init__(self, knight):
-#         State.__init__(self, "follow hero")
-#         self.knight = knight
-#         self.hero = knight.get_entity(self.knight.follow, knight)
-#         self.hero_list = ["wizard", "archer"]
-#     def do_actions(self):
-#         # if wizard is within wizard range, then attract enemies
-#         # stay same lane
-#         if hasattr(self.hero, "ko"):
-#             if not self.hero.ko:
-#                 self.knight.velocity = self.knight.move_target.position - self.knight.position
-#                 if self.knight.velocity.length() > 0:
-#                     self.knight.velocity.normalize_ip();
-#                     self.knight.velocity *= self.knight.maxSpeed
-#             print("follow_hero")
-#         else: 
-#             return "seeking"
-#             # self.knight.path_graph = self.knight.get_lane(self.knight)
-#         # if self.hero.ko == False:
-#         #     if self.knight.follow == "wizard":
-#         #         ## if wizard is within wizard range, then attract enemies
-#         #     # stay same lane
-#         #         self.knight.hero = "wizard"
-#         #     elif self.knight.follow == "archer":
-#         #         self.knight.hero = "archer"
-#         #     else:
-#         #         return "seeking"
-#         return None
-#     def check_conditions(self):
-#         if self.knight.current_hp/self.knight.max_hp < 0.8:
-#             self.knight.heal()
-#         if self.knight.colliding(self.knight):
-#             self.knight.reset(None)
-#         if self.knight.path_graph != self.knight.get_lane(self.knight):
-#             self.knight.move_target.position = self.knight.base.position
-#         else:
-#             if self.knight.position == self.knight.base.spawn_position:
-#                 self.knight.path_graph = self.knight.get_lane(self.knight)
-#                 return "seeking"
-#             if self.hero.ko:
-#                 for hero in self.hero_list:
-#                     if hero == self.knight.follow:
-#                         continue
-#                     self.follow = hero
-#                     return "seeking"
-#         return None
-#     def entry_actions(self):
-#         if self.knight.path_graph != self.knight.get_lane(self.knight):
-#             self.knight.move_target.position = self.knight.base.position
-#         return None
 
 class KnightStateAttacking_TeamA(State):
 
@@ -682,13 +625,6 @@ class KnightStateAttacking_TeamA(State):
                 if (self.knight.hero.position - self.knight.position).length() < self.knight.hero.min_target_distance/2:
                     self.knight.move_target.position = self.knight.hero.position #find hero
                     
-                #else continue
-            
-            #if hero is not alive
-            #continue
-        
-        #if 
-        
         # else:
         #     if self.knight.current_melee_cooldown/self.knight.melee_cooldown > 0.5:
         #         self.knight.move_back(self.knight)
