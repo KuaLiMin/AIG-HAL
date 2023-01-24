@@ -6,7 +6,7 @@ from Graph import *
 from Character import *
 from State import *
 
-KNIGHT_DEBUG = False
+KNIGHT_DEBUG = True
 class Knight_TeamA(Character):
 
     def __init__(self, world, image, base, position):
@@ -198,6 +198,7 @@ class Knight_TeamA(Character):
                 continue
             
             if entity.name == "base" or entity.name == "tower":
+                #  or entity.name == "wizard" or entity.name == "archer" or entity.name == "knight":
                 main_target_list.append(entity)
             else:
                 entity_around_list.append(entity)
@@ -276,8 +277,14 @@ class Knight_TeamA(Character):
         enemy_tower = char.get_enemy_tower(char)
 
         # if len(enemy_tower) == 2 or len(enemy_tower) == 0:
-        if len(enemy_tower) == 2 or (len(enemy_tower) == 0 and char.base.current_hp == BASE_MAX_HP):
-            char.follow = "wizard"
+        if len(enemy_tower) == 2 or len(enemy_tower) == 0:
+            if char.get_entity("base", char.team_id) != None:
+                if char.get_entity("base", char.team_id).current_hp != char.get_entity("base", char.team_id).max_hp:
+                    char.follow = "archer"
+                else:
+                    char.follow = "wizard"
+            else:
+                char.follow = "wizard"
         else:
             char.follow = "archer"
 
@@ -384,10 +391,10 @@ class Knight_TeamA(Character):
         enemy_tower_radius = [364, 358]
         enemy_rect = []
 
-        if char.base.position[0] < SCREEN_WIDTH/2:
+        if char.team_id == 0:
             x_val = SCREEN_WIDTH - enemy_tower_radius[0]
             y_val = SCREEN_HEIGHT - enemy_tower_radius[1]
-        elif char.base.position[0] > SCREEN_WIDTH/2:
+        elif char.team_id == 1:
             x_val = enemy_tower_radius[0]
             y_val = enemy_tower_radius[1]
 
@@ -396,7 +403,7 @@ class Knight_TeamA(Character):
 
         for tower in char.tower:
 
-            if tower.position[0] < SCREEN_WIDTH/2:
+            if tower.team_id == 0:
                 x_val = tower.position[0] + tower.min_target_distance
                 y_val = tower.position[1] + tower.min_target_distance
             else:
@@ -414,16 +421,34 @@ class Knight_TeamA(Character):
         enemy_rect = [x_val, y_val]
 
         return enemy_rect
-       
+
+    def inside_enemy_rect(self, char):
+        if char.team_id == 0:
+            if char.position[0] > char.get_enemy_rect(char)[0] and char.position[1] > char.get_enemy_rect(char)[1]:
+                return True
+        elif char.team_id == 1:
+            if char.position[0] < char.get_enemy_rect(char)[0] and char.position[1] < char.get_enemy_rect(char)[1]:
+                return True
+        else:
+            return False
+
     def enter_enemy_rect(self, char):
         hero_list = []
         hero_list.append(char.get_entity("wizard", (1-char.team_id)))
         hero_list.append(char.get_entity("archer", (1-char.team_id)))
 
+        can_go = False
         for hero in hero_list:
             distance = (hero.position - char.position).length()
             if distance < hero.min_target_distance:
                 return True
+            else:
+                if char.team_id == 0 and (hero.position[0] > char.get_enemy_rect(char)[0] and hero.position[1] > char.get_enemy_rect(char)[1]):
+                    return True 
+                elif char.team_id == 1 and (hero.position[0] < char.get_enemy_rect(char)[0] and hero.position[1] < char.get_enemy_rect(char)[1]):
+                    return True 
+                else: 
+                    continue
             
         print("False")
         return False
@@ -523,9 +548,15 @@ class KnightStateSeeking_TeamA(State):
                         else:
                             print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
                             print("knight at lane", self.knight.paths.index(self.knight.path_graph))
-                            #check if within 160(hero target distance) of hero, otherwise reposition
-                            if(self.knight.position - self.knight.hero.position).length() >= self.knight.hero.min_target_distance:
+                            #check if more than 160(hero target distance) of hero, otherwise reposition
+                            if(self.knight.position - self.knight.hero.position).length() >= self.knight.hero.min_target_distance and (self.knight.position - self.knight.hero.position).length() < self.knight.hero.min_target_distance + 50:
                                 self.knight.move_target.position = self.knight.hero.position
+                            else:# if more than min_target_distnace + 50 
+                                if (self.knight.position - self.knight.move_target.position).length() < 8:
+                                    # continue on path
+                                    if self.current_connection < self.path_length:
+                                        self.knight.move_target.position = self.path[self.current_connection].toNode.position
+                                        self.current_connection += 1
                     
                     # check if opponent is in range
                     nearest_opponent = self.knight.get_nearest_enemy(self.knight)
@@ -535,11 +566,10 @@ class KnightStateSeeking_TeamA(State):
                             self.knight.target = nearest_opponent
                             return "attacking"
                     
-                    if self.knight.position[0] > self.knight.get_enemy_rect(self.knight)[0] and self.knight.position[1] > self.knight.get_enemy_rect(self.knight)[1] and not self.knight.enter_enemy_rect(self.knight):
+                    if self.knight.inside_enemy_rect(self.knight) and not self.knight.enter_enemy_rect(self.knight):
                         self.knight.velocity = Vector2(0,0)
                     else:
                         if (self.knight.position - self.knight.move_target.position).length() < 8:
-
                             # continue on path
                             if self.current_connection < self.path_length:
                                 self.knight.move_target.position = self.path[self.current_connection].toNode.position
@@ -566,15 +596,12 @@ class KnightStateSeeking_TeamA(State):
 
         else:
             self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
-
-
 # class KnightStateFollow_TeamA(State):
 #     def __init__(self, knight):
 #         State.__init__(self, "follow hero")
 #         self.knight = knight
 #         self.hero = knight.get_entity(self.knight.follow, knight)
 #         self.hero_list = ["wizard", "archer"]
-
 #     def do_actions(self):
 #         # if wizard is within wizard range, then attract enemies
 #         # stay same lane
@@ -585,56 +612,41 @@ class KnightStateSeeking_TeamA(State):
 #                     self.knight.velocity.normalize_ip();
 #                     self.knight.velocity *= self.knight.maxSpeed
 #             print("follow_hero")
-        
 #         else: 
 #             return "seeking"
-            
 #             # self.knight.path_graph = self.knight.get_lane(self.knight)
 #         # if self.hero.ko == False:
 #         #     if self.knight.follow == "wizard":
 #         #         ## if wizard is within wizard range, then attract enemies
 #         #     # stay same lane
 #         #         self.knight.hero = "wizard"
-
 #         #     elif self.knight.follow == "archer":
 #         #         self.knight.hero = "archer"
-            
 #         #     else:
 #         #         return "seeking"
-
 #         return None
-
 #     def check_conditions(self):
 #         if self.knight.current_hp/self.knight.max_hp < 0.8:
 #             self.knight.heal()
-
 #         if self.knight.colliding(self.knight):
 #             self.knight.reset(None)
-
 #         if self.knight.path_graph != self.knight.get_lane(self.knight):
 #             self.knight.move_target.position = self.knight.base.position
 #         else:
 #             if self.knight.position == self.knight.base.spawn_position:
 #                 self.knight.path_graph = self.knight.get_lane(self.knight)
 #                 return "seeking"
-
 #             if self.hero.ko:
 #                 for hero in self.hero_list:
 #                     if hero == self.knight.follow:
 #                         continue
 #                     self.follow = hero
 #                     return "seeking"
-        
-        
-
 #         return None
-
 #     def entry_actions(self):
 #         if self.knight.path_graph != self.knight.get_lane(self.knight):
 #             self.knight.move_target.position = self.knight.base.position
-
 #         return None
-
 
 class KnightStateAttacking_TeamA(State):
 
@@ -661,6 +673,21 @@ class KnightStateAttacking_TeamA(State):
 
         if self.knight.colliding(self.knight):
             self.knight.reset(None)
+        else:
+            if self.knight.inside_enemy_rect(self.knight) and not self.knight.enter_enemy_rect(self.knight):
+                self.knight.velocity = Vector2(0, 0)
+            #if hero is alive
+            if not self.knight.hero.ko:
+                #if knight position not within hero min target distance
+                if (self.knight.hero.position - self.knight.position).length() < self.knight.hero.min_target_distance/2:
+                    self.knight.move_target.position = self.knight.hero.position #find hero
+                    
+                #else continue
+            
+            #if hero is not alive
+            #continue
+        
+        #if 
         
         # else:
         #     if self.knight.current_melee_cooldown/self.knight.melee_cooldown > 0.5:
