@@ -79,6 +79,8 @@ class Knight_TeamA(Character):
             pygame.draw.circle(surface, (255,0,0), (910, 410), int(5))
             pygame.draw.line(surface, (255, 0, 0), (660,410), (1024, 410))
             pygame.draw.line(surface, (255, 0, 0), (660, 410), (660, 768))
+            pygame.draw.line(surface, (255, 0, 0), (0,350), (360, 350))
+            pygame.draw.line(surface, (255, 0, 0), (360, 0), (360, 350))
             # pygame.draw.circle(surface, (255,0,0), (int(self.position[0]), int(self.position[1])), int(10), int(2))
 
             #uncomment
@@ -155,7 +157,8 @@ class Knight_TeamA(Character):
             line = f.readline()
 
         f.close()
-
+    
+    #Gets the enemy towers
     def get_enemy_tower(self, char):
         enemy_tower = []
 
@@ -175,6 +178,7 @@ class Knight_TeamA(Character):
         
         return enemy_tower
 
+    #Gets the nearest enemy with a priority list
     def get_nearest_enemy(self,char):
         nearest_tower = None
         entity_around_list = []
@@ -230,6 +234,7 @@ class Knight_TeamA(Character):
         
         return nearest_tower
 
+    #Gets the lane with least melee damage
     def get_least_lane(self, char):
 
         orc_lane = {'0':0, '1':0, '2':0, '3':0}
@@ -269,6 +274,7 @@ class Knight_TeamA(Character):
         # print("orc lane", orc_lane)
         return lane_with_least
 
+    #Gets the lane to follow based on enemy tower and hero
     def get_lane(self, char):
         lane = None
 
@@ -306,6 +312,7 @@ class Knight_TeamA(Character):
         print(self.text)
         return lane
 
+    #Gets an entity by inputing the name and the team that it is not in
     def get_entity(self, entity_name, team): 
         for entity in self.world.entities.values():
             if entity.team_id == 2 or entity.team_id == team:
@@ -314,6 +321,7 @@ class Knight_TeamA(Character):
                 return entity
         return None
 
+    #Allows the hero to become "unstuck"
     def reset(self, hero):
         if hero == None:
             self.velocity = self.path_graph.get_nearest_node(self.position).position - self.position
@@ -334,6 +342,7 @@ class Knight_TeamA(Character):
                 self.velocity.normalize_ip()
                 self.velocity *= self.maxSpeed
 
+    #Detects if hero is colliding
     def colliding(self, char):
         collide_list = pygame.sprite.spritecollide(self, self.world.obstacles, False, pygame.sprite.collide_mask)
         for entity in collide_list:
@@ -345,6 +354,7 @@ class Knight_TeamA(Character):
         char.text = ""
         return False
 
+    #Allows hero to move around target
     def move_back(self, char):
         # top = char.position[1] <= SCREEN_HEIGHT/7
         # bottom = char.position[1] >=SCREEN_HEIGHT - SCREEN_HEIGHT/7
@@ -378,13 +388,7 @@ class Knight_TeamA(Character):
             char.velocity.normalize_ip()
             char.velocity *= char.maxSpeed    
 
-    def enemy_around(self, char):
-        enemy_list = []
-
-        for entity in self.world.entities.values():
-            if entity.team_id == 2 or entity.team_id == char.team_id:
-                continue
-            
+    #Gets enemy base rectangle      
     def get_enemy_rect(self, char):
         enemy_tower_radius = [364, 358]
         enemy_rect = []
@@ -420,6 +424,7 @@ class Knight_TeamA(Character):
 
         return enemy_rect
 
+    #Checks if within enemy base rectangle
     def inside_enemy_rect(self, char):
         if char.team_id == 0:
             if char.position[0] > char.get_enemy_rect(char)[0] and char.position[1] > char.get_enemy_rect(char)[1]:
@@ -430,6 +435,7 @@ class Knight_TeamA(Character):
         else:
             return False
 
+    #Checks if can eneter enemy base rectangle
     def enter_enemy_rect(self, char):
         hero_list = []
         hero_list.append(char.get_entity("wizard", (1-char.team_id)))
@@ -448,15 +454,16 @@ class Knight_TeamA(Character):
                 else: 
                     continue
             
-        print("False")
+        # print("False")
         return False
-                # def targeted(self, char):
+     
+    #Gets path index of entity
     def get_path_index(self, entity, path):
         if entity.name == "archer" or entity.name == "knight":
             return entity.paths.index(path)
         else:
             return entity.world.paths.index(path)
-            # self.knight.hero.world.paths.index(self.knight.hero.path_graph)
+            
 
 class KnightStateSeeking_TeamA(State):
 
@@ -479,9 +486,11 @@ class KnightStateSeeking_TeamA(State):
 
     def check_conditions(self):
         
+        #ALlows knight to heal if below 80% hp
         if self.knight.current_hp/self.knight.max_hp < 0.8:
             self.knight.heal()
 
+        #Resets if knight is colliding
         if self.knight.colliding(self.knight):
             self.knight.reset(None)
         else:
@@ -489,7 +498,7 @@ class KnightStateSeeking_TeamA(State):
             if len(self.knight.world.entities) > 5:
                 #checks if knight has a hero to follow, otherwise, check again
                 if self.knight.hero == None:
-                    print("knight no hero")
+                    # print("knight no hero")
                     self.knight.path_graph = self.knight.get_lane(self.knight)
                     self.knight.hero = self.knight.get_entity(self.knight.follow, (1-self.knight.team_id))
                     nearest_node = self.knight.path_graph.get_nearest_node(self.knight.position)
@@ -507,20 +516,35 @@ class KnightStateSeeking_TeamA(State):
                     else:
                         self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
                     
-                    print("Knight in lane", self.knight.paths.index(self.knight.path_graph))
+                    # print("Knight in lane", self.knight.paths.index(self.knight.path_graph))
                 else:
                     #if hero to follow is alive
                     if not self.knight.hero.ko:
                         if self.knight.hero.name != self.knight.follow:
                             self.knight.hero = self.knight.get_entity(self.knight.follow, (1-self.knight.team_id))
-                        print(self.knight.hero.name, " to follow and alive")
+                        # print(self.knight.hero.name, " to follow and alive")
 
                         #hero is alive but not on the same path then move to base respawn and get hero lane
                         if self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph) != self.knight.get_path_index(self.knight, self.knight.path_graph):
-                            print(self.knight.hero.name, " not in same lane")
+                            # print(self.knight.hero.name, " not in same lane")
+                            # nearest_node = self.knight.path_graph.get_nearest_node(self.knight.position)
+                            # self.path = pathFindAStar(self.knight.path_graph, \
+                            #                             nearest_node, \
+                            #                             self.knight.path_graph.get_nearest_node(self.knight.hero.position))
+
+                            # self.path_length = len(self.path)
+
+                            # if (self.path_length > 0):
+                            #     self.current_connection = 0
+                            #     self.knight.move_target.position = self.path[0].fromNode.position
+
+                            # else:
+                            #     self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
+
                             self.knight.move_target.position = self.knight.base.spawn_position
+                            
                             if (self.knight.position-self.knight.base.spawn_position).length() < 20:
-                                print("knight at base")
+                                # print("knight at base")
                                 self.knight.path_graph = self.knight.get_lane(self.knight)
                                 nearest_node = self.knight.path_graph.get_nearest_node(self.knight.position)
                                 self.tower = self.knight.get_enemy_tower(self.knight)
@@ -536,12 +560,12 @@ class KnightStateSeeking_TeamA(State):
 
                                 else:
                                     self.knight.move_target.position = self.knight.path_graph.nodes[self.knight.base.target_node_index].position
-                            print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
-                            print("knight at lane", self.knight.paths.index(self.knight.path_graph))
+                            # print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
+                            # print("knight at lane", self.knight.paths.index(self.knight.path_graph))
                         #hero is alive and on the same path
                         else:
-                            print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
-                            print("knight at lane", self.knight.paths.index(self.knight.path_graph))
+                            # print(self.knight.hero.name, " at lane" , self.knight.get_path_index(self.knight.hero, self.knight.hero.path_graph))
+                            # print("knight at lane", self.knight.paths.index(self.knight.path_graph))
                             #check if more than 160(hero target distance) of hero, otherwise reposition
                             if(self.knight.position - self.knight.hero.position).length() >= self.knight.hero.min_target_distance and (self.knight.position - self.knight.hero.position).length() < self.knight.hero.min_target_distance + 50:
                                 self.knight.move_target.position = self.knight.hero.position
