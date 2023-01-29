@@ -461,6 +461,13 @@ class ArcherStateDodgeProjectile_TeamA(State):
             self.to_move = True
             self.wait = True
             self.move_count = 0
+
+        #Back to the start if end of list is reached (since it is a circular formation)
+        if self.point_index >= len(self.move_list) - 1:
+                self.point_index = 0
+        if self.point_index <= 0:
+            self.point_index = len(self.move_list) - 1
+
         
 
         # Check if move target is too close to obstacle, if yes then reverse direction
